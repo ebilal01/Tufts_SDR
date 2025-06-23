@@ -4,7 +4,7 @@ import time
 import json
 import os
 from flask_socketio import SocketIO
-import eventlet
+import gevent  # Replace eventlet import
 import csv
 import struct
 import datetime
@@ -12,7 +12,7 @@ from flask_cors import CORS
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins="*")
 
 # Persistent storage path for Render Disk
 DATA_DIR = '/opt/render/data'
