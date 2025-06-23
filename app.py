@@ -162,7 +162,7 @@ def animation_data():
         return jsonify({
             "rotation": 0,
             "position": {"x": 0, "y": 0, "z": 0},
-            "force": {"x": 0, "y": 0, "z": 0}
+            "force": {"x": 0, "y": 0, "z": 0"}
         })
     latest_message = message_history[-1]
     telemetry_data = {
