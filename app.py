@@ -4,7 +4,7 @@ import time
 import json
 import os
 from flask_socketio import SocketIO
-import gevent  # Replace eventlet import
+import eventlet
 import csv
 import struct
 import datetime
@@ -12,7 +12,7 @@ from flask_cors import CORS
 
 app = Flask(__name__, static_folder="static", template_folder="templates")
 CORS(app)
-socketio = SocketIO(app, async_mode='gevent', cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Persistent storage path for Render Disk
 DATA_DIR = '/opt/render/data'
@@ -156,6 +156,29 @@ def download_history():
 def message_history_endpoint():
     return jsonify(message_history) if message_history else jsonify([])
 
+@app.route("/animation-data", methods=['GET'])
+def animation_data():
+    if not message_history:
+        return jsonify({
+            "rotation": 0,
+            "position": {"x": 0, "y": 0, "z": 0},
+            "force": {"x": 0, "y": 0, "z": 0}
+        })
+    latest_message = message_history[-1]
+    telemetry_data = {
+        "rotation": latest_message["yaw_deg"],  # Use yaw for rotation (degrees)
+        "position": {
+            "x": 0,  # Keep centered; could use roll/pitch if desired
+            "y": 0,
+            "z": 0
+        },
+        "force": {
+            "x": latest_message["vavg_1_mps"],  # Wind velocity X
+            "y": latest_message["vavg_2_mps"],  # Wind velocity Y
+            "z": latest_message["vavg_3_mps"]   # Wind velocity Z
+        }
+    }
+    return jsonify(telemetry_data)
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
