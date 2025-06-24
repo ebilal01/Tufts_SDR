@@ -252,27 +252,6 @@
     }
 };
 
-        function updateTelemetry() {
-    fetch('/live-data')
-        .then(response => {
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
-        })
-        .then(data => {
-            if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude))) {
-                document.getElementById('lat').textContent = parseFloat(data.latitude).toFixed(6);
-                document.getElementById('lon').textContent = parseFloat(data.longitude).toFixed(6);
-                document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
-                document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                marker.setLatLng([parseFloat(data.latitude), parseFloat(data.longitude)]);
-                map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 5);
-            } else {
-                console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
-            }
-        })
-        .catch(error => console.error('Error fetching live data:', error));
-}
-
         const config = {
             displayModeBar: true,
             modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
