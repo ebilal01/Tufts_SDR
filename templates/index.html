@@ -199,7 +199,9 @@
             <ul id="message-history" style="display: inline-block; text-align: left;"></ul>
         </div>
     </div>
-   <script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+    <script>
         const BASE_URL = "https://tufts-sdr.onrender.com";
 
         const map = L.map('map').setView([0, 0], 2);
@@ -217,37 +219,25 @@
     
     historyData.forEach(data => {
         if (data.latitude && data.longitude) {
-            let lat = parseFloat(data.latitude);
-            let lng = parseFloat(data.longitude);
-            // Validate parsed values
-            if (!isNaN(lat) && !isNaN(lng)) {
-                // Adjust longitude to prevent wrapping across the date line
-                if (prevLng !== null) {
-                    while (lng - prevLng > 180) lng -= 360;
-                    while (lng - prevLng < -180) lng += 360;
-                }
-                const latLng = [lat, lng];
-                flightPath.addLatLng(latLng);
-                prevLng = lng;
-            } else {
-                console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+            let lng = data.longitude;
+            // Adjust longitude to prevent wrapping across the date line
+            if (prevLng !== null) {
+                while (lng - prevLng > 180) lng -= 360;
+                while (lng - prevLng < -180) lng += 360;
             }
+            const latLng = [data.latitude, lng];
+            flightPath.addLatLng(latLng);
+            prevLng = lng;
         }
     });
     
     const latest = historyData[historyData.length - 1];
     if (latest && latest.latitude && latest.longitude) {
-        const lat = parseFloat(latest.latitude);
-        const lon = parseFloat(latest.longitude);
-        if (!isNaN(lat) && !isNaN(lon)) {
-            marker.setLatLng([lat, lon]);
-            document.getElementById('lat').textContent = lat.toFixed(6);
-            document.getElementById('lon').textContent = lon.toFixed(6);
-            if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
-                map.fitBounds(flightPath.getBounds());
-            }
-        } else {
-            console.warn("Invalid latest latitude or longitude:", latest.latitude, latest.longitude);
+        marker.setLatLng([latest.latitude, latest.longitude]);
+        document.getElementById('lat').textContent = latest.latitude.toFixed(6);
+        document.getElementById('lon').textContent = latest.longitude.toFixed(6);
+        if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
+            map.fitBounds(flightPath.getBounds());
         }
     }
 };
@@ -595,4 +585,5 @@ const updatePeakWindGraph = (historyData) => {
     </script>
 </body>
 </html>
+
 
