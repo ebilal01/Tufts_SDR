@@ -4,584 +4,248 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tufts Sonic Anemometer – Long Duration Balloon Mission 2025</title>
-    <link rel="stylesheet" href="/static/format.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css">
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.0/socket.io.js"></script>
-    <script src="https://cdn.babylonjs.com/earcut.min.js"></script>
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZQJK80RREL"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-
-      gtag('config', 'G-ZQJK80RREL');
-    </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
     <style>
-        .image-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin: 20px 0; /* Adds spacing above and below the image */
-}
-
-        .centered-image {
-            max-width: 100%; /* Ensures the image scales responsively */
-            height: auto;    /* Maintains aspect ratio */
-}
-        .graph-container {
-            display: flex;
-            flex-wrap: wrap; 
-            justify-content: center;
-            margin-top: 20px;
-            gap: 20px; 
-        }
-        .graph {
-            width: 100%; 
-            max-width: 600px; 
-            height: 250px;
-            margin: 0;
-            position: relative; 
-        }
-        #renderCanvas {
-            width: 100%;
-            height: 300px;
-            display: block;
-            touch-action: none;
-        }
-        .action-button {
-            background-color: #007BFF;
-            color: white;
-            padding: 8px 15px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none; /* For the link */
-            display: inline-block; /* Consistent sizing */
-            width: 200px; /* Fixed width for uniformity */
-            text-align: center; /* Centers text */
-            font-family: "Figtree", sans-serif; /* Matches external button rule */
-            font-size: 15px; /* Matches external button rule */
-            font-weight: 400; /* Matches external button rule */
-        }
-        .action-button:hover {
-            background-color: #0056b3;
-        }
-        #about-section {
-            margin-top: 20px;
-        }
-        /* Move Plotly modebar to the bottom */
-        .modebar {
-            top: auto !important;
-            bottom: 0 !important;
-            padding-bottom: 5px; /* Add some spacing from the bottom edge */
-        }
-        /* Add padding below the map */
-        #map {
-            margin-bottom: 20px; /* Space between map and graphs */
-        }
-        .button-container {
-            display: flex;
-            justify-content: center; /* Center buttons horizontally */
-            gap: 20px; /* Space between buttons */
-            margin: 20px 0; /* Consistent vertical spacing */
-        }
+        #map { height: 400px; width: 100%; }
+        .card { background-color: #f9fafb; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .blink { animation: blink 1s step-end infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
-<body>
-    <header>
-    <div class="header-content">
-        <h3>Tufts Sonic Anemometer – Long Duration Balloon Mission 2025</h3>
-        <h13>Elias Bilal & Prof. Robert White, Tufts Mechanical Engineering</h13>
-    </div>
-    <nav>
-        <ul class="nav_links">
-            <li><img controls width="200" height="150" src="/static/images/Screenshot 2025-03-02 210851.png" alt="Tufts Logo" class="nav-logo"></li>
-            <li><a href="https://sites.tufts.edu/senselab/research/#anemometer">MSS Lab Site</a></li>
-        </ul>
+<body class="bg-gray-100 font-sans">
+    <header class="bg-blue-600 text-white p-4">
+        <h1 class="text-2xl font-bold">Tufts Sonic Anemometer – Long Duration Balloon Mission 2025</h1>
+        <p class="text-sm">Elias Bilal & Prof. Robert White, Tufts Mechanical Engineering</p>
+    </header>
+
+    <nav class="bg-gray-800 text-white p-4">
+        <a href="/" class="mr-4 hover:text-blue-300">MSS Lab Site</a>
     </nav>
-</header>
-    <div class="button-container">
-        <button id="about-toggle-btn" class="action-button">Project Summary</button>
-        <a href="/download-history" class="action-button" download>Download History as CSV</a>
-    </div>
 
-    <div id="map" style="height: 500px; width: 100%;"></div>
+    <div class="container mx-auto p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <h2 class="text-xl font-semibold mb-2">Project Summary</h2>
+                <a href="/download-history" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">Download History as CSV</a>
+                <div id="summary" class="card mt-2">
+                    <p>Loading...</p>
+                </div>
+            </div>
 
-    <!-- Row 1: Altitude and Temperature -->
-    <div class="graph-container">
-        <div id="altitude-graph" class="graph"></div>
-        <div id="temperature-graph" class="graph"></div>
-    </div>
-
-    <!-- Row 2: Orientation and Pressure -->
-    <div class="graph-container">
-        <div id="orientation-graph" class="graph"></div>
-        <div id="pressure-graph" class="graph"></div>
-    </div>
-
-    <!-- Row 3: Average Wind and Std Dev Wind -->
-    <div class="graph-container">
-        <div id="average-wind-graph" class="graph"></div>
-        <div id="stddev-wind-graph" class="graph"></div>
-    </div>
-
-    <!-- Row 4: Peak Wind -->
-    <div class="graph-container">
-        <div id="peak-wind-graph" class="graph"></div>
-    </div>
-
-    <div class="image-container">
-    <img src="/static/images/AxisDefinition(4).png" alt="Flight Data Screenshot" class="centered-image">
-</div>
-
-    <!<canvas id="renderCanvas"></canvas>
-
-    <div style="text-align: center;">
-        <div style="margin-top: 10px; font-size: 16px;">
-            Latitude: <span id="lat">0</span>
-        </div>
-        <div style="margin-top: 10px; font-size: 16px;">
-            Longitude: <span id="lon">0</span>
-        </div>
-        <div style="margin-top: 10px; font-size: 16px;">
-            Temperature: <span id="temp">0</span> °C
-        </div>
-        <div style="margin-top: 10px; font-size: 16px;">
-            Pressure: <span id="pressure">0</span> mbar
-        </div>
-        <div id="about-section">
-            <h6 style="text-align: center">Project Summary</h6>
-            <p style="text-align: center">
-                The Tufts high altitude sonic anemometer [1,2] is flying on a long duration high altitude balloon mission out of Wanaka, New Zealand, courtesy of <a href="https://www.csbf.nasa.gov/newzealand/wanaka.htm">NASA and the Columbia Scientific Ballooning Facility</a>. As far as we are aware, this is the first ever long duration flight of a stratospheric sonic anemometer. The instrument will monitor vector (3D) relative winds at the gondola with an update rate of approximately 3 x 3D measurements per second. The system also includes pressure and temperature sensors, a 9DOF IMU for geospatial orientation, and a GPS receiver. All the data is logged internally and will be available with the high update rate (3 Hz) recording for the entire mission when the gondola is recovered. There is, however, some risk that the data could be lost if recovery is not possible. In addition, data will not be available for months while awaiting return of the instrument.  To address this, an Iridium modem was added to the system for this flight. Iridium messages are sent over the satellite network once every 20 minutes. Each message contains mean wind, the standard deviation of wind, and the peak wind in the last 20 minute interval (all as 3D vectors), in addition to pressure, temperature, altitude, GPS location, and orientation information. These messages are used to generate the plots on this site.</p> <p> The goals of this site are to monitor flight data without needing to wait for SD card retrieval and to create a platform to share the recorded high altitude wind anemometry data with the global scientific community. This Pyscript Webhook site receives hex encoded messages sent from a mission balloon mounted Artemis Global Tracker over the Iridium Network through RockBlock. The backend Python file then parses that message and updates the map, graphs and model to display the data live on the front end HTML file. This web service is hosted on Render and message data is saved onto a persistent disk. The full system (sensor head, electronics, signal processing, communications, and web services) were built by students in Prof. Robert White’s group at Tufts University (<a href="https://sites.tufts.edu/senselab/">https://sites.tufts.edu/senselab/</a>). Students involved include Elias Bilal (web system programming, mechanical fabrication), Rishabh Chaudhary (transducers, acoustics, and signal processing), Tim Cheng (system electronics and signal processing), Julia Huckaby (mechanical design), Zarina Kosherbayeva (mechanical design and fabrication), Cade Smith (infrasound measurements), Ben Fisher (mechanical design and pressure sensors), Shekinah Kanamugire (temperature sensors), and Freidlay Steve (mechanical design and fabrication).<br><p>
-                <p style="text-align: center">[1] Cheng, Tim J., et al. "Test Flight of a Stratospheric Sonic Anemometer Prototype." <i>Journal of Atmospheric and Oceanic Technology</i> 41.12 (2024): 1139-1149. <a href="https://journals.ametsoc.org/view/journals/atot/41/12/JTECH-D-24-0010.1.xml">https://journals.ametsoc.org/view/journals/atot/41/12/JTECH-D-24-0010.1.xml</a><br>
-                [2] White, Robert D., et al. "Flow Testing of a Digital Sonic Anemometer for Martian and Stratospheric Environments." <i>AIAA AVIATION FORUM AND ASCEND 2024</i>. <a href="https://arc.aiaa.org/doi/abs/10.2514/6.2024-3933">https://arc.aiaa.org/doi/abs/10.2514/6.2024-3933</a>
-            </p>
-        </div>
-        <article class="gridy">
-    <div class="two-column-container">
-        <div class="column">
-            <div class="card">
-                <a href="https://ebilal01.github.io/Elias-Bilal-Portfolio/">
-                    <div class="imgBx robert-white">
-                        <img src="/static/images/Screenshot 2025-03-02 225758.png" alt="Elias Bilal">
-                        <div class="overlay">
-                            <h2>Elias Bilal</h2>
-                            <p>Research Assistant</p>
-                        </div>
-                    </div>
-                </a>
+            <div>
+                <h2 class="text-xl font-semibold mb-2">Live Map</h2>
+                <div id="map" class="card"></div>
             </div>
         </div>
-        <div class="column">
-            <div class="card">
-                <a href="https://engineering.tufts.edu/me/people/faculty/robert-white">
-                    <div class="imgBx robert-white"> <!-- Class already here -->
-                        <img src="/static/images/image001.jpg" alt="Robert White">
-                        <div class="overlay">
-                            <h2>Prof. Robert White</h2>
-                        </div>
-                    </div>
-                </a>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+                <h2 class="text-xl font-semibold mb-2">Live Graphs</h2>
+                <div id="graphs" class="card">
+                    <p>Loading...</p>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xl font-semibold mb-2">3D Model</h2>
+                <div id="model" class="card">
+                    <p>Loading...</p>
+                </div>
             </div>
         </div>
-    </div>
-</article>
-        <div>
-            <h2>Latest Message:</h2>
-            <p id="latest-message">No messages yet.</p>
+
+        <div class="mt-4">
+            <h2 class="text-xl font-semibold mb-2">Live Telemetry</h2>
+            <div class="grid grid-cols-2 gap-4">
+                <div class="card">
+                    <p>Latitude: <span id="latitude">0</span></p>
+                </div>
+                <div class="card">
+                    <p>Longitude: <span id="longitude">0</span></p>
+                </div>
+                <div class="card">
+                    <p>Temperature: <span id="temperature">0</span> °C</p>
+                </div>
+                <div class="card">
+                    <p>Pressure: <span id="pressure">0</span> mbar</p>
+                </div>
+            </div>
         </div>
-        <div>
-            <h2>Message History:</h2>
-            <ul id="message-history" style="display: inline-block; text-align: left;"></ul>
+
+        <div class="mt-4">
+            <h2 class="text-xl font-semibold mb-2">Project Summary</h2>
+            <div id="project-summary" class="card">
+                <p>
+                    The Tufts high altitude sonic anemometer [1,2] is flying on a long duration high altitude balloon mission out of Wanaka, New Zealand, courtesy of NASA and the Columbia Scientific Ballooning Facility. As far as we are aware, this is the first ever long duration flight of a stratospheric sonic anemometer. The instrument will monitor vector (3D) relative winds at the gondola with an update rate of approximately 3 x 3D measurements per second. The system also includes pressure and temperature sensors, a 9DOF IMU for geospatial orientation, and a GPS receiver. All the data is logged internally and will be available with the high update rate (3 Hz) recording for the entire mission when the gondola is recovered. There is, however, some risk that the data could be lost if recovery is not possible. In addition, data will not be available for months while awaiting return of the instrument. To address this, an Iridium modem was added to the system for this flight. Iridium messages are sent over the satellite network once every 20 minutes. Each message contains mean wind, the standard deviation of wind, and the peak wind in the last 20 minute interval (all as 3D vectors), in addition to pressure, temperature, altitude, GPS location, and orientation information. These messages are used to generate the plots on this site.
+                    The goals of this site are to monitor flight data without needing to wait for SD card retrieval and to create a platform to share the recorded high altitude wind anemometry data with the global scientific community. This Pyscript Webhook site receives hex encoded messages sent from a mission balloon mounted Artemis Global Tracker over the Iridium Network through RockBlock. The backend Python file then parses that message and updates the map, graphs and model to display the data live on the front end HTML file. This web service is hosted on Render and message data is saved onto a persistent disk. The full system (sensor head, electronics, signal processing, communications, and web services) were built by students in Prof. Robert White’s group at Tufts University (https://sites.tufts.edu/senselab/). Students involved include Elias Bilal (web system programming, mechanical fabrication), Rishabh Chaudhary (transducers, acoustics, and signal processing), Tim Cheng (system electronics and signal processing), Julia Huckaby (mechanical design), Zarina Kosherbayeva (mechanical design and fabrication), Cade Smith (infrasound measurements), Ben Fisher (mechanical design and pressure sensors), Shekinah Kanamugire (temperature sensors), and Freidlay Steve (mechanical design and fabrication).
+                </p>
+                <p>
+                    [1] Cheng, Tim J., et al. "Test Flight of a Stratospheric Sonic Anemometer Prototype." Journal of Atmospheric and Oceanic Technology 41.12 (2024): 1139-1149. <a href="https://journals.ametsoc.org/view/journals/atot/41/12/JTECH-D-24-0010.1.xml">https://journals.ametsoc.org/view/journals/atot/41/12/JTECH-D-24-0010.1.xml</a>
+                </p>
+                <p>
+                    [2] White, Robert D., et al. "Flow Testing of a Digital Sonic Anemometer for Martian and Stratospheric Environments." AIAA AVIATION FORUM AND ASCEND 2024. <a href="https://arc.aiaa.org/doi/abs/10.2514/6.2024-3933">https://arc.aiaa.org/doi/abs/10.2514/6.2024-3933</a>
+                </p>
+            </div>
         </div>
+
+        <div class="mt-4">
+            <h2 class="text-xl font-semibold mb-2">Team</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card">
+                    <img src="https://via.placeholder.com/150" alt="Elias Bilal" class="w-24 h-24 rounded-full mx-auto">
+                    <h3 class="text-center font-medium">Elias Bilal</h3>
+                    <p class="text-center text-sm">Research Assistant</p>
+                </div>
+                <div class="card">
+                    <img src="https://via.placeholder.com/150" alt="Prof. Robert White" class="w-24 h-24 rounded-full mx-auto">
+                    <h3 class="text-center font-medium">Prof. Robert White</h3>
+                    <p class="text-center text-sm"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h2 class="text-xl font-semibold mb-2">Latest Message</h2>
+            <div id="latest-message" class="card">
+                <p>No messages yet.</p>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <h2 class="text-xl font-semibold mb-2">Message History</h2>
+            <div id="message-history" class="card">
+                <ul></ul>
+            </div>
+        </div>
+
+        <script>
+            // Live Map
+            var map = L.map('map').setView([-43.5407, -68.1379], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+            var marker = L.marker([-43.5407, -68.1379]).addTo(map);
+
+            // Update telemetry and map
+            function updateTelemetry() {
+                fetch('/live-data')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
+                            document.getElementById('latitude').textContent = data.latitude.toFixed(4);
+                            document.getElementById('longitude').textContent = data.longitude.toFixed(4);
+                            document.getElementById('temperature').textContent = (data.temperature_pht_c || 0).toFixed(1);
+                            document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
+                            marker.setLatLng([data.latitude, data.longitude]);
+                            map.setView([data.latitude, data.longitude], 5);
+                        } else {
+                            console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching live data:', error));
+            }
+
+            // Update project summary
+            function updateSummary() {
+                fetch('/history')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('summary').innerHTML = '<p>' + JSON.stringify(data, null, 2).replace(/\n/g, '<br>').replace(/ /g, ' ') + '</p>';
+                    })
+                    .catch(error => console.error('Error fetching summary:', error));
+            }
+
+            // Update latest message
+            function updateLatestMessage() {
+                fetch('/live-data')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('latest-message').innerHTML = '<p>' + JSON.stringify(data, null, 2).replace(/\n/g, '<br>').replace(/ /g, ' ') + '</p>';
+                    })
+                    .catch(error => console.error('Error fetching latest message:', error));
+            }
+
+            // Update message history
+            function updateMessageHistory() {
+                fetch('/message-history')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        const ul = document.getElementById('message-history').getElementsByTagName('ul')[0];
+                        ul.innerHTML = '';
+                        data.forEach(msg => {
+                            const li = document.createElement('li');
+                            li.textContent = JSON.stringify(msg, null, 2).replace(/\n/g, ' ').replace(/ /g, ' ');
+                            ul.appendChild(li);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching message history:', error));
+            }
+
+            // Placeholder for updateWindVectors (to be implemented for graphs if needed)
+            function updateWindVectors(data) {
+                // Example: Update graph with wind data (vavg_1_mps, vstd_1_mps, vpk_1_mps, etc.)
+                document.getElementById('graphs').innerHTML = `
+                    <p>Altitude: ${data.altitudes || 0}</p>
+                    <p>Pressure: ${data.pressure_mbar || 0} mbar</p>
+                    <p>Temperature: ${data.temperature_pht_c || 0} °C</p>
+                    <p>Orientation: Roll ${data.roll_deg || 0}°, Pitch ${data.pitch_deg || 0}°, Yaw ${data.yaw_deg || 0}°</p>
+                    <p>Average Wind: X ${data.vavg_1_mps || 0}, Y ${data.vavg_2_mps || 0}, Z ${data.vavg_3_mps || 0} m/s</p>
+                    <p>Std of Wind: X ${data.vstd_1_mps || 0}, Y ${data.vstd_2_mps || 0}, Z ${data.vstd_3_mps || 0} m/s</p>
+                    <p>Peak Wind: X ${data.vpk_1_mps || 0}, Y ${data.vpk_2_mps || 0}, Z ${data.vpk_3_mps || 0} m/s</p>
+                `;
+            }
+
+            // Update graphs and model
+            function updateGraphsAndModel() {
+                fetch('/flight-data')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('graphs').innerHTML = '<p>Latitude: ' + data.latitude + ', Longitude: ' + data.longitude + ', Altitude: ' + data.altitudes + '</p>';
+                        updateWindVectors(data); // Call placeholder function
+                    })
+                    .catch(error => console.error('Error fetching flight data:', error));
+
+                fetch('/animation-data')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        document.getElementById('model').innerHTML = '<p>Rotation: ' + data.rotation + ', Force: ' + JSON.stringify(data.force) + '</p>';
+                    })
+                    .catch(error => console.error('Error fetching animation data:', error));
+            }
+
+            // Fetch and update all data
+            function fetchAndUpdateAll() {
+                updateTelemetry();
+                updateSummary();
+                updateLatestMessage();
+                updateMessageHistory();
+                updateGraphsAndModel();
+            }
+
+            // Initial load and periodic updates
+            fetchAndUpdateAll();
+            setInterval(fetchAndUpdateAll, 5000); // Update every 5 seconds
+        </script>
     </div>
-    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-    <script>
-        const BASE_URL = "https://tufts-sdr.onrender.com";
-
-        const map = L.map('map').setView([0, 0], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-        const flightPath = L.polyline([], { color: 'red' }).addTo(map);
-        const marker = L.marker([0, 0]).addTo(map);
-        let hasUserInteracted = false;
-
-        map.on('zoomstart', () => { hasUserInteracted = true; });
-
-    const updateMap = (historyData) => {
-    flightPath.setLatLngs([]);
-    let prevLng = null;
-    
-    historyData.forEach(data => {
-        if (data.latitude && data.longitude) {
-            let lng = data.longitude;
-            // Adjust longitude to prevent wrapping across the date line
-            if (prevLng !== null) {
-                while (lng - prevLng > 180) lng -= 360;
-                while (lng - prevLng < -180) lng += 360;
-            }
-            const latLng = [data.latitude, lng];
-            flightPath.addLatLng(latLng);
-            prevLng = lng;
-        }
-    });
-    
-    const latest = historyData[historyData.length - 1];
-    if (latest && latest.latitude && latest.longitude) {
-        marker.setLatLng([latest.latitude, latest.longitude]);
-        document.getElementById('lat').textContent = latest.latitude.toFixed(6);
-        document.getElementById('lon').textContent = latest.longitude.toFixed(6);
-        if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
-            map.fitBounds(flightPath.getBounds());
-        }
-    }
-};
-
-        const config = {
-            displayModeBar: true,
-            modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
-            displaylogo: false,
-            responsive: true 
-        };
-
-        const updateAltitudeGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
-
-    if (timestamps.length === 0 || altitudes.length === 0) return;
-
-    const graphData = [{
-        x: timestamps,
-        y: altitudes,
-        type: 'scatter',
-        mode: 'lines+markers',
-        line: { color: 'blue' },
-        name: "Altitude (m)"
-    }];
-
-    const layout = {
-        title: { text: "Altitude", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Altitude (m)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('altitude-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('altitude-graph', graphData, layout, config);
-};
-
-const updateTemperatureGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const ttip = historyData.map(data => data.temperature_tctip_c).filter(t => t !== undefined);
-    const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
-    const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
-
-    if (timestamps.length === 0) return;
-
-    const tempGraphData = [
-        { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
-        { x: timestamps, y: tcj, type: 'scatter', mode: 'lines+markers', name: 'Tcj (°C)', line: { color: 'orange' } },
-        { x: timestamps, y: tpht, type: 'scatter', mode: 'lines+markers', name: 'Tpht (°C)', line: { color: 'yellow' } }
-    ];
-
-    const layout = {
-        title: { text: "Temperature", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Temperature (°C)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('temperature-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('temperature-graph', tempGraphData, layout, config);
-    const latest = historyData[historyData.length - 1];
-    if (latest) {
-        if (latest.temperature_cj_c !== undefined) {
-            document.getElementById("temp").textContent = latest.temperature_tctip_c.toFixed(1);
-        }
-        if (latest.pressure_mbar !== undefined) {
-            document.getElementById("pressure").textContent = latest.pressure_mbar.toFixed(1);
-        }
-    }
-};
-
-const updateOrientationGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const pitch = historyData.map(data => data.pitch_deg).filter(p => p !== undefined);
-    const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
-    const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
-
-    if (timestamps.length === 0) return;
-
-    const graphData = [
-        { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
-        { x: timestamps, y: roll, type: 'scatter', mode: 'lines+markers', name: 'Roll (°)', line: { color: 'green' } },
-        { x: timestamps, y: yaw, type: 'scatter', mode: 'lines+markers', name: 'Yaw (°)', line: { color: 'purple' } }
-    ];
-
-    const layout = {
-        title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Degrees", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('orientation-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('orientation-graph', graphData, layout, config);
-};
-
-const updatePressureGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
-
-    if (timestamps.length === 0 || pressures.length === 0) return;
-
-    const graphData = [{
-        x: timestamps,
-        y: pressures,
-        type: 'scatter',
-        mode: 'lines+markers',
-        line: { color: 'orange' },
-        name: "Pressure (mbar)"
-    }];
-
-    const layout = {
-        title: { text: "Pressure", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Pressure (mbar)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('pressure-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('pressure-graph', graphData, layout, config);
-};
-
-const updateAverageWindGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
-    const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
-    const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
-
-    if (timestamps.length === 0) return;
-
-    const graphData = [
-        { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
-        { x: timestamps, y: vavg2, type: 'scatter', mode: 'lines+markers', name: 'Vavg 2 (m/s)', line: { color: 'green' } },
-        { x: timestamps, y: vavg3, type: 'scatter', mode: 'lines+markers', name: 'Vavg 3 (m/s)', line: { color: 'blue' } }
-    ];
-
-    const layout = {
-        title: { text: "Average Wind", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('average-wind-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('average-wind-graph', graphData, layout, config);
-};
-
-const updateStdDevWindGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
-    const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
-    const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
-
-    if (timestamps.length === 0) return;
-
-    const graphData = [
-        { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
-        { x: timestamps, y: vstd2, type: 'scatter', mode: 'lines+markers', name: 'Vstd 2 (m/s)', line: { color: 'green' } },
-        { x: timestamps, y: vstd3, type: 'scatter', mode: 'lines+markers', name: 'Vstd 3 (m/s)', line: { color: 'blue' } }
-    ];
-
-    const layout = {
-        title: { text: "Std Dev of Wind", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Std Dev (m/s)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('stddev-wind-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('stddev-wind-graph', graphData, layout, config);
-};
-
-const updatePeakWindGraph = (historyData) => {
-    const timestamps = historyData.map(data => data.received_time).filter(t => t);
-    const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
-    const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
-    const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
-
-    if (timestamps.length === 0) return;
-
-    const graphData = [
-        { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
-        { x: timestamps, y: vpk2, type: 'scatter', mode: 'lines+markers', name: 'Vpk 2 (m/s)', line: { color: 'green' } },
-        { x: timestamps, y: vpk3, type: 'scatter', mode: 'lines+markers', name: 'Vpk 3 (m/s)', line: { color: 'blue' } }
-    ];
-
-    const layout = {
-        title: { text: "Peak Wind", font: { size: 14 }, standoff: 10 },
-        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-        yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
-        margin: { t: 40, b: 60, l: 60, r: 20 },
-        height: 250
-    };
-
-    const graphDiv = document.getElementById('peak-wind-graph');
-    if (graphDiv && graphDiv._fullLayout) {
-        const currentLayout = graphDiv._fullLayout;
-        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-            layout.xaxis.range = currentLayout.xaxis.range;
-            layout.yaxis.range = currentLayout.yaxis.range;
-        }
-    }
-
-    Plotly.react('peak-wind-graph', graphData, layout, config);
-};
-
-        let isFirstLoad = true;
-
-        const fetchAndUpdateAll = async () => {
-            try {
-                const response = await fetch(`${BASE_URL}/history`);
-                if (!response.ok) {
-                    console.error(`Fetch failed with status: ${response.status}`);
-                    return;
-                }
-                const historyData = await response.json();
-                if (historyData.length > 0) {
-                    updateMap(historyData);
-                    updateAltitudeGraph(historyData);
-                    updateTemperatureGraph(historyData);
-                    updateOrientationGraph(historyData);
-                    updatePressureGraph(historyData);
-                    updateAverageWindGraph(historyData);
-                    updateStdDevWindGraph(historyData);
-                    updatePeakWindGraph(historyData);
-                    updateWindVectors(historyData);
-                    if (isFirstLoad) {
-                        updateCameraOrientation(historyData);
-                        isFirstLoad = false;
-                    }
-                }
-            } catch (error) {
-                console.error("Error fetching history:", error);
-            }
-        };
-
-        const fetchHistory = async () => {
-            await fetchAndUpdateAll();
-        };
-
-        window.onload = async () => {
-            await fetchHistory();
-            setInterval(fetchAndUpdateAll, 1000);
-
-            const aboutButton = document.getElementById('about-toggle-btn');
-            const aboutSection = document.getElementById('about-section');
-            aboutButton.addEventListener('click', () => {
-                aboutSection.scrollIntoView({ behavior: 'smooth' });
-            });
-        };
-
-        document.addEventListener("DOMContentLoaded", function () {
-            fetchMessageHistory();
-            fetchLatestMessage();
-        });
-
-        async function fetchLatestMessage() {
-            try {
-                const response = await fetch(`${BASE_URL}/live-data`);
-                if (!response.ok) return;
-                const data = await response.json();
-                if (data.message) {
-                    document.getElementById('latest-message').textContent = `Message: ${data.message}`;
-                } else {
-                    document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
-                }
-            } catch (error) {
-                console.error("Error fetching latest message:", error);
-            }
-        }
-
-        async function fetchMessageHistory() {
-    try {
-        const response = await fetch(`${BASE_URL}/message-history`);
-        if (!response.ok) return;
-        const historyData = await response.json();
-
-        const historyList = document.getElementById('message-history');
-        historyList.innerHTML = '';
-        // Take the last 10 messages (or all if less than 10)
-        const latestMessages = historyData.slice(-10);
-        latestMessages.forEach((msg) => {
-            const listItem = document.createElement('li');
-            listItem.textContent = `(${msg.received_time}) Msg: ${msg.message} | Lat: ${msg.latitude}, Lon: ${msg.longitude}`;
-            historyList.appendChild(listItem);
-        });
-    } catch (error) {
-        console.error("Error fetching message history:", error);
-    }
-}
-    </script>
 </body>
 </html>
