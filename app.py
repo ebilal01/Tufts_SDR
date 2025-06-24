@@ -50,7 +50,7 @@ message_history = load_flight_history()
 @app.route('/')
 def index():
     return render_template('index.html')
-    
+
 @app.route('/rockblock', methods=['POST'])
 def handle_rockblock():
     data_json = request.get_json()
@@ -68,48 +68,56 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
+        # Decode hex to bytes and then to text
         byte_data = bytearray.fromhex(data)
-        sensor_data = struct.unpack('IhffHhhhhhhhhhhhhhhhh', byte_data[:50])
-        sensor_data = list(sensor_data)
+        message_text = byte_data.decode('utf-8', errors='ignore').strip()
 
-        for x in range(5, 12):
-            sensor_data[x] /= 10
-        for x in range(12, 15):
-            sensor_data[x] /= 1000
-        for x in range(15, 21):
-            sensor_data[x] /= 100
+        # Parse the text message into a dictionary
+        message_data = {}
+        pairs = [pair.strip() for pair in message_text.split(',') if ':' in pair]
+        for pair in pairs:
+            try:
+                key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
+                if value:
+                    if value.isdigit():
+                        message_data[key] = int(value)
+                    elif value.replace('.', '').replace('-', '').isdigit():
+                        message_data[key] = float(value)
+                    else:
+                        message_data[key] = value
+            except ValueError as e:
+                print(f"⚠️ Parse error for {key}: {e}")
+                continue
 
-        sent_time_utc = datetime.datetime.fromtimestamp(sensor_data[0], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        extra_message = ""
-        if len(byte_data) > 50:
-            extra_bytes = byte_data[50:]
-            extra_message = extra_bytes.decode('utf-8', errors='ignore').strip()
+        # Construct the full message_data with defaults and transformations
+        sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+        extra_message = message_data.get("message", "No extra message")
 
         message_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
-            "unix_epoch": sensor_data[0],
-            "siv": sensor_data[1],
-            "latitude": sensor_data[2],
-            "longitude": sensor_data[3],
-            "altitude": sensor_data[4],
-            "pressure_mbar": sensor_data[5],
-            "temperature_pht_c": sensor_data[6],
-            "temperature_cj_c": sensor_data[7],
-            "temperature_tctip_c": sensor_data[8],
-            "roll_deg": sensor_data[9],
-            "pitch_deg": sensor_data[10],
-            "yaw_deg": sensor_data[11],
-            "vavg_1_mps": sensor_data[12],
-            "vavg_2_mps": sensor_data[13],
-            "vavg_3_mps": sensor_data[14],
-            "vstd_1_mps": sensor_data[15],
-            "vstd_2_mps": sensor_data[16],
-            "vstd_3_mps": sensor_data[17],
-            "vpk_1_mps": sensor_data[18],
-            "vpk_2_mps": sensor_data[19],
-            "vpk_3_mps": sensor_data[20],
-            "message": extra_message if extra_message else "No extra message"
+            "unix_epoch": message_data.get("unix_epoch", 0),
+            "siv": message_data.get("siv", 0),
+            "latitude": message_data.get("latitude", 0.0),
+            "longitude": message_data.get("longitude", 0.0),
+            "altitude": message_data.get("altitude", 0),
+            "pressure_mbar": message_data.get("pressure_mbar", 0) / 10.0,  # Match original scaling
+            "temperature_pht_c": message_data.get("temperature_pht_c", 0) / 10.0,
+            "temperature_cj_c": message_data.get("temperature_cj_c", 0) / 10.0,
+            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0) / 10.0,
+            "roll_deg": message_data.get("roll_deg", 0) / 10.0,
+            "pitch_deg": message_data.get("pitch_deg", 0) / 10.0,
+            "yaw_deg": message_data.get("yaw_deg", 0) / 10.0,
+            "vavg_1_mps": message_data.get("vavg_1_mps", 0) / 1000.0,
+            "vavg_2_mps": message_data.get("vavg_2_mps", 0) / 1000.0,
+            "vavg_3_mps": message_data.get("vavg_3_mps", 0) / 1000.0,
+            "vstd_1_mps": message_data.get("vstd_1_mps", 0) / 100.0,
+            "vstd_2_mps": message_data.get("vstd_2_mps", 0) / 100.0,
+            "vstd_3_mps": message_data.get("vstd_3_mps", 0) / 100.0,
+            "vpk_1_mps": message_data.get("vpk_1_mps", 0) / 100.0,
+            "vpk_2_mps": message_data.get("vpk_2_mps", 0) / 100.0,
+            "vpk_3_mps": message_data.get("vpk_3_mps", 0) / 100.0,
+            "message": extra_message
         }
 
         message_history.append(message_data)
@@ -162,7 +170,7 @@ def animation_data():
         return jsonify({
             "rotation": 0,
             "position": {"x": 0, "y": 0, "z": 0},
-            "force": {"x": 0, "y": 0, "z": 0"}
+            "force": {"x": 0, "y": 0, "z": 0}
         })
     latest_message = message_history[-1]
     telemetry_data = {
