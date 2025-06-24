@@ -136,13 +136,13 @@
                         return response.json();
                     })
                     .then(data => {
-                        if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
-                            document.getElementById('latitude').textContent = data.latitude.toFixed(4);
-                            document.getElementById('longitude').textContent = data.longitude.toFixed(4);
+                        if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude))) {
+                            document.getElementById('latitude').textContent = parseFloat(data.latitude).toFixed(4);
+                            document.getElementById('longitude').textContent = parseFloat(data.longitude).toFixed(4);
                             document.getElementById('temperature').textContent = (data.temperature_pht_c || 0).toFixed(1);
                             document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                            marker.setLatLng([data.latitude, data.longitude]);
-                            map.setView([data.latitude, data.longitude], 5);
+                            marker.setLatLng([parseFloat(data.latitude), parseFloat(data.longitude)]);
+                            map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 5);
                         } else {
                             console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
                         }
@@ -195,17 +195,16 @@
                     .catch(error => console.error('Error fetching message history:', error));
             }
 
-            // Placeholder for updateWindVectors (to be implemented for graphs if needed)
+            // Update graphs with all data
             function updateWindVectors(data) {
-                // Example: Update graph with wind data (vavg_1_mps, vstd_1_mps, vpk_1_mps, etc.)
                 document.getElementById('graphs').innerHTML = `
-                    <p>Altitude: ${data.altitudes || 0}</p>
-                    <p>Pressure: ${data.pressure_mbar || 0} mbar</p>
-                    <p>Temperature: ${data.temperature_pht_c || 0} °C</p>
-                    <p>Orientation: Roll ${data.roll_deg || 0}°, Pitch ${data.pitch_deg || 0}°, Yaw ${data.yaw_deg || 0}°</p>
-                    <p>Average Wind: X ${data.vavg_1_mps || 0}, Y ${data.vavg_2_mps || 0}, Z ${data.vavg_3_mps || 0} m/s</p>
-                    <p>Std of Wind: X ${data.vstd_1_mps || 0}, Y ${data.vstd_2_mps || 0}, Z ${data.vstd_3_mps || 0} m/s</p>
-                    <p>Peak Wind: X ${data.vpk_1_mps || 0}, Y ${data.vpk_2_mps || 0}, Z ${data.vpk_3_mps || 0} m/s</p>
+                    <div class="card"><p>Altitude: ${data.altitudes || 0}</p></div>
+                    <div class="card"><p>Pressure: ${data.pressure_mbar || 0} mbar</p></div>
+                    <div class="card"><p>Temperature: ${data.temperature_pht_c || 0} °C</p></div>
+                    <div class="card"><p>Orientation: Roll ${data.roll_deg || 0}°, Pitch ${data.pitch_deg || 0}°, Yaw ${data.yaw_deg || 0}°</p></div>
+                    <div class="card"><p>Average Wind: X ${data.vavg_1_mps || 0}, Y ${data.vavg_2_mps || 0}, Z ${data.vavg_3_mps || 0} m/s</p></div>
+                    <div class="card"><p>Std of Wind: X ${data.vstd_1_mps || 0}, Y ${data.vstd_2_mps || 0}, Z ${data.vstd_3_mps || 0} m/s</p></div>
+                    <div class="card"><p>Peak Wind: X ${data.vpk_1_mps || 0}, Y ${data.vpk_2_mps || 0}, Z ${data.vpk_3_mps || 0} m/s</p></div>
                 `;
             }
 
@@ -217,8 +216,8 @@
                         return response.json();
                     })
                     .then(data => {
-                        document.getElementById('graphs').innerHTML = '<p>Latitude: ' + data.latitude + ', Longitude: ' + data.longitude + ', Altitude: ' + data.altitudes + '</p>';
-                        updateWindVectors(data); // Call placeholder function
+                        document.getElementById('graphs').innerHTML = '<p>Loading...</p>';
+                        updateWindVectors(data);
                     })
                     .catch(error => console.error('Error fetching flight data:', error));
 
@@ -244,7 +243,7 @@
 
             // Initial load and periodic updates
             fetchAndUpdateAll();
-            setInterval(fetchAndUpdateAll, 5000); // Update every 5 seconds
+            setInterval(fetchAndUpdateAll, 5000);
         </script>
     </div>
 </body>
