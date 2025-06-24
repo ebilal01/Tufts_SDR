@@ -200,423 +200,420 @@
         </div>
     </div>
    <script>
-    const BASE_URL = "https://tufts-sdr.onrender.com";
+        const BASE_URL = "https://tufts-sdr.onrender.com";
 
-    const map = L.map('map').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        const map = L.map('map').setView([0, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-    const flightPath = L.polyline([], { color: 'red' }).addTo(map);
-    const marker = L.marker([0, 0]).addTo(map);
-    let hasUserInteracted = false;
+        const flightPath = L.polyline([], { color: 'red' }).addTo(map);
+        const marker = L.marker([0, 0]).addTo(map);
+        let hasUserInteracted = false;
 
-    map.on('zoomstart', () => { hasUserInteracted = true; });
+        map.on('zoomstart', () => { hasUserInteracted = true; });
 
     const updateMap = (historyData) => {
-        flightPath.setLatLngs([]);
-        let prevLng = null;
-        
-        historyData.forEach(data => {
-            if (data.latitude && data.longitude) {
-                let lat = parseFloat(data.latitude);
-                let lng = parseFloat(data.longitude);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    if (prevLng !== null) {
-                        while (lng - prevLng > 180) lng -= 360;
-                        while (lng - prevLng < -180) lng += 360;
-                    }
-                    const latLng = [lat, lng];
-                    flightPath.addLatLng(latLng);
-                    prevLng = lng;
-                } else {
-                    console.warn("Invalid latitude or longitude in history:", data.latitude, data.longitude, "for data:", data);
+    flightPath.setLatLngs([]);
+    let prevLng = null;
+    
+    historyData.forEach(data => {
+        if (data.latitude && data.longitude) {
+            let lat = parseFloat(data.latitude);
+            let lng = parseFloat(data.longitude);
+            // Validate parsed values
+            if (!isNaN(lat) && !isNaN(lng)) {
+                // Adjust longitude to prevent wrapping across the date line
+                if (prevLng !== null) {
+                    while (lng - prevLng > 180) lng -= 360;
+                    while (lng - prevLng < -180) lng += 360;
                 }
-            }
-        });
-        
-        const latest = historyData[historyData.length - 1];
-        if (latest && latest.latitude && latest.longitude) {
-            const lat = parseFloat(latest.latitude);
-            const lon = parseFloat(latest.longitude);
-            if (!isNaN(lat) && !isNaN(lon)) {
-                marker.setLatLng([lat, lon]);
-                document.getElementById('lat').textContent = lat.toFixed(6);
-                document.getElementById('lon').textContent = lon.toFixed(6);
-                if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
-                    map.fitBounds(flightPath.getBounds());
-                }
+                const latLng = [lat, lng];
+                flightPath.addLatLng(latLng);
+                prevLng = lng;
             } else {
-                console.warn("Invalid latest latitude or longitude in history:", latest.latitude, latest.longitude, "for latest:", latest);
+                console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+            }
+        }
+    });
+    
+    const latest = historyData[historyData.length - 1];
+    if (latest && latest.latitude && latest.longitude) {
+        const lat = parseFloat(latest.latitude);
+        const lon = parseFloat(latest.longitude);
+        if (!isNaN(lat) && !isNaN(lon)) {
+            marker.setLatLng([lat, lon]);
+            document.getElementById('lat').textContent = lat.toFixed(6);
+            document.getElementById('lon').textContent = lon.toFixed(6);
+            if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
+                map.fitBounds(flightPath.getBounds());
             }
         } else {
-            console.warn("No valid latest data in history:", latest);
+            console.warn("Invalid latest latitude or longitude:", latest.latitude, latest.longitude);
         }
-    };
-
-    function updateTelemetry() {
-        fetch('/live-data')
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                console.log("Live data received:", data); // Debug log
-                if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude))) {
-                    const lat = parseFloat(data.latitude);
-                    const lon = parseFloat(data.longitude);
-                    document.getElementById('lat').textContent = lat.toFixed(6);
-                    document.getElementById('lon').textContent = lon.toFixed(6);
-                    document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
-                    document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                    marker.setLatLng([lat, lon]);
-                    map.setView([lat, lon], 5);
-                } else {
-                    console.warn("Invalid latitude or longitude in live data:", data.latitude, data.longitude, "for data:", data);
-                }
-            })
-            .catch(error => console.error('Error fetching live data:', error));
     }
+};
 
-    const config = {
-        displayModeBar: true,
-        modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
-        displaylogo: false,
-        responsive: true 
-    };
-
-    const updateAltitudeGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
-
-        if (timestamps.length === 0 || altitudes.length === 0) return;
-
-        const graphData = [{
-            x: timestamps,
-            y: altitudes,
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: { color: 'blue' },
-            name: "Altitude (m)"
-        }];
-
-        const layout = {
-            title: { text: "Altitude", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Altitude (m)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('altitude-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('altitude-graph', graphData, layout, config);
-    };
-
-    const updateTemperatureGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const ttip = historyData.map(data => data.temperature_tctip_c).filter(t => t !== undefined);
-        const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
-        const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const tempGraphData = [
-            { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
-            { x: timestamps, y: tcj, type: 'scatter', mode: 'lines+markers', name: 'Tcj (°C)', line: { color: 'orange' } },
-            { x: timestamps, y: tpht, type: 'scatter', mode: 'lines+markers', name: 'Tpht (°C)', line: { color: 'yellow' } }
-        ];
-
-        const layout = {
-            title: { text: "Temperature", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Temperature (°C)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('temperature-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('temperature-graph', tempGraphData, layout, config);
-        const latest = historyData[historyData.length - 1];
-        if (latest) {
-            if (latest.temperature_cj_c !== undefined) {
-                document.getElementById("temp").textContent = latest.temperature_tctip_c.toFixed(1);
-            }
-            if (latest.pressure_mbar !== undefined) {
-                document.getElementById("pressure").textContent = latest.pressure_mbar.toFixed(1);
-            }
-        }
-    };
-
-    const updateOrientationGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const pitch = historyData.map(data => data.pitch_deg).filter(p => p !== undefined);
-        const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
-        const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
-            { x: timestamps, y: roll, type: 'scatter', mode: 'lines+markers', name: 'Roll (°)', line: { color: 'green' } },
-            { x: timestamps, y: yaw, type: 'scatter', mode: 'lines+markers', name: 'Yaw (°)', line: { color: 'purple' } }
-        ];
-
-        const layout = {
-            title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Degrees", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('orientation-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('orientation-graph', graphData, layout, config);
-    };
-
-    const updatePressureGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
-
-        if (timestamps.length === 0 || pressures.length === 0) return;
-
-        const graphData = [{
-            x: timestamps,
-            y: pressures,
-            type: 'scatter',
-            mode: 'lines+markers',
-            line: { color: 'orange' },
-            name: "Pressure (mbar)"
-        }];
-
-        const layout = {
-            title: { text: "Pressure", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Pressure (mbar)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('pressure-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('pressure-graph', graphData, layout, config);
-    };
-
-    const updateAverageWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
-        const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
-        const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vavg2, type: 'scatter', mode: 'lines+markers', name: 'Vavg 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vavg3, type: 'scatter', mode: 'lines+markers', name: 'Vavg 3 (m/s)', line: { color: 'blue' } }
-        ];
-
-        const layout = {
-            title: { text: "Average Wind", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('average-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('average-wind-graph', graphData, layout, config);
-    };
-
-    const updateStdDevWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
-        const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
-        const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vstd2, type: 'scatter', mode: 'lines+markers', name: 'Vstd 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vstd3, type: 'scatter', mode: 'lines+markers', name: 'Vstd 3 (m/s)', line: { color: 'blue' } }
-        ];
-
-        const layout = {
-            title: { text: "Std Dev of Wind", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Std Dev (m/s)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('stddev-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('stddev-wind-graph', graphData, layout, config);
-    };
-
-    const updatePeakWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
-        const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
-        const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vpk2, type: 'scatter', mode: 'lines+markers', name: 'Vpk 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vpk3, type: 'scatter', mode: 'lines+markers', name: 'Vpk 3 (m/s)', line: { color: 'blue' } }
-        ];
-
-        const layout = {
-            title: { text: "Peak Wind", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        const graphDiv = document.getElementById('peak-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
-        Plotly.react('peak-wind-graph', graphData, layout, config);
-    };
-
-    let isFirstLoad = true;
-
-    const fetchAndUpdateAll = async () => {
-        try {
-            const response = await fetch(`${BASE_URL}/history`);
-            if (!response.ok) {
-                console.error(`Fetch failed with status: ${response.status}`);
-                return;
-            }
-            const historyData = await response.json();
-            if (historyData.length > 0) {
-                updateMap(historyData);
-                updateAltitudeGraph(historyData);
-                updateTemperatureGraph(historyData);
-                updateOrientationGraph(historyData);
-                updatePressureGraph(historyData);
-                updateAverageWindGraph(historyData);
-                updateStdDevWindGraph(historyData);
-                updatePeakWindGraph(historyData);
-                if (isFirstLoad) {
-                    // updateCameraOrientation(historyData); // Uncomment if needed
-                    isFirstLoad = false;
-                }
-            }
-            // Add live telemetry update
-            updateTelemetry();
-        } catch (error) {
-            console.error("Error fetching history:", error);
-        }
-    };
-
-    const fetchHistory = async () => {
-        await fetchAndUpdateAll();
-    };
-
-    window.onload = async () => {
-        await fetchHistory();
-        setInterval(fetchAndUpdateAll, 5000); // Increased to 5 seconds
-
-        const aboutButton = document.getElementById('about-toggle-btn');
-        const aboutSection = document.getElementById('about-section');
-        aboutButton.addEventListener('click', () => {
-            aboutSection.scrollIntoView({ behavior: 'smooth' });
-        });
-    };
-
-    document.addEventListener("DOMContentLoaded", function () {
-        fetchMessageHistory();
-        fetchLatestMessage();
-    });
-
-    async function fetchLatestMessage() {
-        try {
-            const response = await fetch(`${BASE_URL}/live-data`);
-            if (!response.ok) return;
-            const data = await response.json();
-            if (data.message) {
-                document.getElementById('latest-message').textContent = `Message: ${data.message}`;
+        function updateTelemetry() {
+    fetch('/live-data')
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude))) {
+                document.getElementById('lat').textContent = parseFloat(data.latitude).toFixed(6);
+                document.getElementById('lon').textContent = parseFloat(data.longitude).toFixed(6);
+                document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
+                document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
+                marker.setLatLng([parseFloat(data.latitude), parseFloat(data.longitude)]);
+                map.setView([parseFloat(data.latitude), parseFloat(data.longitude)], 5);
             } else {
-                document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
+                console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
             }
-        } catch (error) {
-            console.error("Error fetching latest message:", error);
+        })
+        .catch(error => console.error('Error fetching live data:', error));
+}
+
+        const config = {
+            displayModeBar: true,
+            modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
+            displaylogo: false,
+            responsive: true 
+        };
+
+        const updateAltitudeGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
+
+    if (timestamps.length === 0 || altitudes.length === 0) return;
+
+    const graphData = [{
+        x: timestamps,
+        y: altitudes,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'blue' },
+        name: "Altitude (m)"
+    }];
+
+    const layout = {
+        title: { text: "Altitude", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Altitude (m)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('altitude-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
         }
     }
 
-    async function fetchMessageHistory() {
-        try {
-            const response = await fetch(`${BASE_URL}/message-history`);
-            if (!response.ok) return;
-            const historyData = await response.json();
+    Plotly.react('altitude-graph', graphData, layout, config);
+};
 
-            const historyList = document.getElementById('message-history');
-            historyList.innerHTML = '';
-            const latestMessages = historyData.slice(-10);
-            latestMessages.forEach((msg) => {
-                const listItem = document.createElement('li');
-                listItem.textContent = `(${msg.received_time}) Msg: ${msg.message} | Lat: ${msg.latitude}, Lon: ${msg.longitude}`;
-                historyList.appendChild(listItem);
+const updateTemperatureGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const ttip = historyData.map(data => data.temperature_tctip_c).filter(t => t !== undefined);
+    const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
+    const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
+
+    if (timestamps.length === 0) return;
+
+    const tempGraphData = [
+        { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
+        { x: timestamps, y: tcj, type: 'scatter', mode: 'lines+markers', name: 'Tcj (°C)', line: { color: 'orange' } },
+        { x: timestamps, y: tpht, type: 'scatter', mode: 'lines+markers', name: 'Tpht (°C)', line: { color: 'yellow' } }
+    ];
+
+    const layout = {
+        title: { text: "Temperature", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Temperature (°C)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('temperature-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('temperature-graph', tempGraphData, layout, config);
+    const latest = historyData[historyData.length - 1];
+    if (latest) {
+        if (latest.temperature_cj_c !== undefined) {
+            document.getElementById("temp").textContent = latest.temperature_tctip_c.toFixed(1);
+        }
+        if (latest.pressure_mbar !== undefined) {
+            document.getElementById("pressure").textContent = latest.pressure_mbar.toFixed(1);
+        }
+    }
+};
+
+const updateOrientationGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const pitch = historyData.map(data => data.pitch_deg).filter(p => p !== undefined);
+    const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
+    const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
+
+    if (timestamps.length === 0) return;
+
+    const graphData = [
+        { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
+        { x: timestamps, y: roll, type: 'scatter', mode: 'lines+markers', name: 'Roll (°)', line: { color: 'green' } },
+        { x: timestamps, y: yaw, type: 'scatter', mode: 'lines+markers', name: 'Yaw (°)', line: { color: 'purple' } }
+    ];
+
+    const layout = {
+        title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Degrees", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('orientation-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('orientation-graph', graphData, layout, config);
+};
+
+const updatePressureGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
+
+    if (timestamps.length === 0 || pressures.length === 0) return;
+
+    const graphData = [{
+        x: timestamps,
+        y: pressures,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: 'orange' },
+        name: "Pressure (mbar)"
+    }];
+
+    const layout = {
+        title: { text: "Pressure", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Pressure (mbar)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('pressure-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('pressure-graph', graphData, layout, config);
+};
+
+const updateAverageWindGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
+    const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
+    const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
+
+    if (timestamps.length === 0) return;
+
+    const graphData = [
+        { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
+        { x: timestamps, y: vavg2, type: 'scatter', mode: 'lines+markers', name: 'Vavg 2 (m/s)', line: { color: 'green' } },
+        { x: timestamps, y: vavg3, type: 'scatter', mode: 'lines+markers', name: 'Vavg 3 (m/s)', line: { color: 'blue' } }
+    ];
+
+    const layout = {
+        title: { text: "Average Wind", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('average-wind-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('average-wind-graph', graphData, layout, config);
+};
+
+const updateStdDevWindGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
+    const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
+    const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
+
+    if (timestamps.length === 0) return;
+
+    const graphData = [
+        { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
+        { x: timestamps, y: vstd2, type: 'scatter', mode: 'lines+markers', name: 'Vstd 2 (m/s)', line: { color: 'green' } },
+        { x: timestamps, y: vstd3, type: 'scatter', mode: 'lines+markers', name: 'Vstd 3 (m/s)', line: { color: 'blue' } }
+    ];
+
+    const layout = {
+        title: { text: "Std Dev of Wind", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Std Dev (m/s)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('stddev-wind-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('stddev-wind-graph', graphData, layout, config);
+};
+
+const updatePeakWindGraph = (historyData) => {
+    const timestamps = historyData.map(data => data.received_time).filter(t => t);
+    const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
+    const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
+    const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
+
+    if (timestamps.length === 0) return;
+
+    const graphData = [
+        { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
+        { x: timestamps, y: vpk2, type: 'scatter', mode: 'lines+markers', name: 'Vpk 2 (m/s)', line: { color: 'green' } },
+        { x: timestamps, y: vpk3, type: 'scatter', mode: 'lines+markers', name: 'Vpk 3 (m/s)', line: { color: 'blue' } }
+    ];
+
+    const layout = {
+        title: { text: "Peak Wind", font: { size: 14 }, standoff: 10 },
+        xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
+        yaxis: { title: { text: "Velocity (m/s)", standoff: 10 }, automargin: true },
+        margin: { t: 40, b: 60, l: 60, r: 20 },
+        height: 250
+    };
+
+    const graphDiv = document.getElementById('peak-wind-graph');
+    if (graphDiv && graphDiv._fullLayout) {
+        const currentLayout = graphDiv._fullLayout;
+        if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
+            layout.xaxis.range = currentLayout.xaxis.range;
+            layout.yaxis.range = currentLayout.yaxis.range;
+        }
+    }
+
+    Plotly.react('peak-wind-graph', graphData, layout, config);
+};
+
+        let isFirstLoad = true;
+
+        const fetchAndUpdateAll = async () => {
+            try {
+                const response = await fetch(`${BASE_URL}/history`);
+                if (!response.ok) {
+                    console.error(`Fetch failed with status: ${response.status}`);
+                    return;
+                }
+                const historyData = await response.json();
+                if (historyData.length > 0) {
+                    updateMap(historyData);
+                    updateAltitudeGraph(historyData);
+                    updateTemperatureGraph(historyData);
+                    updateOrientationGraph(historyData);
+                    updatePressureGraph(historyData);
+                    updateAverageWindGraph(historyData);
+                    updateStdDevWindGraph(historyData);
+                    updatePeakWindGraph(historyData);
+                    updateWindVectors(historyData);
+                    if (isFirstLoad) {
+                        updateCameraOrientation(historyData);
+                        isFirstLoad = false;
+                    }
+                }
+            } catch (error) {
+                console.error("Error fetching history:", error);
+            }
+        };
+
+        const fetchHistory = async () => {
+            await fetchAndUpdateAll();
+        };
+
+        window.onload = async () => {
+            await fetchHistory();
+            setInterval(fetchAndUpdateAll, 1000);
+
+            const aboutButton = document.getElementById('about-toggle-btn');
+            const aboutSection = document.getElementById('about-section');
+            aboutButton.addEventListener('click', () => {
+                aboutSection.scrollIntoView({ behavior: 'smooth' });
             });
-        } catch (error) {
-            console.error("Error fetching message history:", error);
+        };
+
+        document.addEventListener("DOMContentLoaded", function () {
+            fetchMessageHistory();
+            fetchLatestMessage();
+        });
+
+        async function fetchLatestMessage() {
+            try {
+                const response = await fetch(`${BASE_URL}/live-data`);
+                if (!response.ok) return;
+                const data = await response.json();
+                if (data.message) {
+                    document.getElementById('latest-message').textContent = `Message: ${data.message}`;
+                } else {
+                    document.getElementById('latest-message').textContent = `Received structured data at ${data.received_time}`;
+                }
+            } catch (error) {
+                console.error("Error fetching latest message:", error);
+            }
         }
+
+        async function fetchMessageHistory() {
+    try {
+        const response = await fetch(`${BASE_URL}/message-history`);
+        if (!response.ok) return;
+        const historyData = await response.json();
+
+        const historyList = document.getElementById('message-history');
+        historyList.innerHTML = '';
+        // Take the last 10 messages (or all if less than 10)
+        const latestMessages = historyData.slice(-10);
+        latestMessages.forEach((msg) => {
+            const listItem = document.createElement('li');
+            listItem.textContent = `(${msg.received_time}) Msg: ${msg.message} | Lat: ${msg.latitude}, Lon: ${msg.longitude}`;
+            historyList.appendChild(listItem);
+        });
+    } catch (error) {
+        console.error("Error fetching message history:", error);
     }
-</script>
+}
+    </script>
 </body>
 </html>
 
