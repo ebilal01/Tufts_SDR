@@ -78,6 +78,8 @@ def handle_rockblock():
         for pair in pairs:
             try:
                 key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
+                if value.endswith('}'):
+                    value = value.rstrip('}')  # Remove trailing '}' if present
                 if value:
                     if value.isdigit():
                         message_data[key] = int(value)
