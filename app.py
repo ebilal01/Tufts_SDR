@@ -80,6 +80,8 @@ def handle_rockblock():
                 key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
                 if value.endswith('}'):
                     value = value.rstrip('}')  # Remove trailing '}' if present
+                if key == "longitude":  # Debug longitude specifically
+                    print(f"Raw longitude value: {value}")
                 if value:
                     if value.isdigit():
                         message_data[key] = int(value)
@@ -101,9 +103,9 @@ def handle_rockblock():
             "unix_epoch": message_data.get("unix_epoch", 0),
             "siv": message_data.get("siv", 0),
             "latitude": message_data.get("latitude", 0.0),
-            "longitude": message_data.get("longitude", 0.0),
+            "longitude": message_data.get("longitude", 0.0),  # Ensure this is set
             "altitude": message_data.get("altitude", 0),
-            "pressure_mbar": message_data.get("pressure_mbar", 0) / 10.0,  # Match original scaling
+            "pressure_mbar": message_data.get("pressure_mbar", 0) / 10.0,
             "temperature_pht_c": message_data.get("temperature_pht_c", 0) / 10.0,
             "temperature_cj_c": message_data.get("temperature_cj_c", 0) / 10.0,
             "temperature_tctip_c": message_data.get("temperature_tctip_c", 0) / 10.0,
