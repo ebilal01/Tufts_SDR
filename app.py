@@ -91,7 +91,7 @@ def handle_rockblock():
                 print(f"⚠️ Parse error for {key}: {e}")
                 continue
 
-        # Construct the full message_data with defaults and transformations
+        # Construct the full message_data with raw values, no scaling
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data.get("message", "No extra message")
 
@@ -101,24 +101,24 @@ def handle_rockblock():
             "unix_epoch": message_data.get("unix_epoch", 0),
             "siv": message_data.get("siv", 0),
             "latitude": message_data.get("latitude", 0.0),
-            "longitude": message_data.get("longitude", 0.0),  # Ensure this is set
+            "longitude": message_data.get("longitude", 0.0),
             "altitude": message_data.get("altitude", 0),
-            "pressure_mbar": message_data.get("pressure_mbar", 0) / 10.0,
-            "temperature_pht_c": message_data.get("temperature_pht_c", 0) / 10.0,
-            "temperature_cj_c": message_data.get("temperature_cj_c", 0) / 10.0,
-            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0) / 10.0,
-            "roll_deg": message_data.get("roll_deg", 0) / 10.0,
-            "pitch_deg": message_data.get("pitch_deg", 0) / 10.0,
-            "yaw_deg": message_data.get("yaw_deg", 0) / 10.0,
-            "vavg_1_mps": message_data.get("vavg_1_mps", 0) / 1000.0,
-            "vavg_2_mps": message_data.get("vavg_2_mps", 0) / 1000.0,
-            "vavg_3_mps": message_data.get("vavg_3_mps", 0) / 1000.0,
-            "vstd_1_mps": message_data.get("vstd_1_mps", 0) / 100.0,
-            "vstd_2_mps": message_data.get("vstd_2_mps", 0) / 100.0,
-            "vstd_3_mps": message_data.get("vstd_3_mps", 0) / 100.0,
-            "vpk_1_mps": message_data.get("vpk_1_mps", 0) / 100.0,
-            "vpk_2_mps": message_data.get("vpk_2_mps", 0) / 100.0,
-            "vpk_3_mps": message_data.get("vpk_3_mps", 0) / 100.0,
+            "pressure_mbar": message_data.get("pressure_mbar", 0),
+            "temperature_pht_c": message_data.get("temperature_pht_c", 0),
+            "temperature_cj_c": message_data.get("temperature_cj_c", 0),
+            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0),
+            "roll_deg": message_data.get("roll_deg", 0),
+            "pitch_deg": message_data.get("pitch_deg", 0),
+            "yaw_deg": message_data.get("yaw_deg", 0),
+            "vavg_1_mps": message_data.get("vavg_1_mps", 0),
+            "vavg_2_mps": message_data.get("vavg_2_mps", 0),
+            "vavg_3_mps": message_data.get("vavg_3_mps", 0),
+            "vstd_1_mps": message_data.get("vstd_1_mps", 0),
+            "vstd_2_mps": message_data.get("vstd_2_mps", 0),
+            "vstd_3_mps": message_data.get("vstd_3_mps", 0),
+            "vpk_1_mps": message_data.get("vpk_1_mps", 0),
+            "vpk_2_mps": message_data.get("vpk_2_mps", 0),
+            "vpk_3_mps": message_data.get("vpk_3_mps", 0),
             "message": extra_message
         }
 
