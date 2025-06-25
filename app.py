@@ -68,76 +68,45 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
-        # Decode hex to bytes and then to text
+        # Decode hex to bytes and then to text, removing padding
         byte_data = bytearray.fromhex(data)
         message_text = byte_data.decode('utf-8', errors='ignore').strip()
         print(f"Decoded message text: {message_text}")  # Log decoded text
 
-        # Parse the text message into a dictionary
-        message_data = {}
-        pairs = [pair.strip() for pair in message_text.split(',') if ':' in pair]
-        for pair in pairs:
-            try:
-                key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
-                if value.endswith('}'):
-                    value = value.rstrip('}')  # Remove trailing '}'
-                if value:
-                    if value.isdigit():
-                        message_data[key] = int(value)
-                    elif value.replace('.', '').replace('-', '').isdigit():
-                        message_data[key] = float(value)
-                    else:
-                        message_data[key] = value
-                print(f"Parsed pair: {key} = {value}")  # Log each pair
-            except ValueError as e:
-                print(f"⚠️ Parse error for {key}: {e}")
-                continue
+        # Remove padding and parse as JSON
+        if message_text.startswith("XXXXXX"):
+            message_text = message_text[6:]  # Strip "XXXXXX" prefix
+        message_data = json.loads(message_text)  # Parse as JSON
+        print(f"Parsed JSON data: {message_data}")  # Log parsed data
 
-        # Log the raw parsed data
-        print(f"Raw parsed data: {message_data}")
-
-        # Check for required keys and raise error if missing
-        required_keys = ["unix_epoch", "siv", "latitude", "longitude", "altitude", "message"]
-        missing_keys = [key for key in required_keys if key not in message_data]
-        if missing_keys:
-            raise KeyError(f"Missing required keys: {missing_keys}")
-
-        # Construct the full message_data with explicit validation
+        # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data["unix_epoch"], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data["message"]
-
-        # Clean and convert all numeric fields
-        def clean_numeric(value, key):
-            try:
-                return float(str(value).rstrip('}').strip())
-            except (ValueError, TypeError) as e:
-                print(f"⚠️ Invalid numeric value for {key}: {value}, error: {e}")
-                raise
 
         message_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
             "unix_epoch": message_data["unix_epoch"],
             "siv": message_data["siv"],
-            "latitude": clean_numeric(message_data["latitude"], "latitude"),
-            "longitude": clean_numeric(message_data["longitude"], "longitude"),
-            "altitude": clean_numeric(message_data["altitude"], "altitude"),
-            "pressure_mbar": clean_numeric(message_data["pressure_mbar"], "pressure_mbar"),
-            "temperature_pht_c": clean_numeric(message_data["temperature_pht_c"], "temperature_pht_c"),
-            "temperature_cj_c": clean_numeric(message_data["temperature_cj_c"], "temperature_cj_c"),
-            "temperature_tctip_c": clean_numeric(message_data["temperature_tctip_c"], "temperature_tctip_c"),
-            "roll_deg": clean_numeric(message_data["roll_deg"], "roll_deg"),
-            "pitch_deg": clean_numeric(message_data["pitch_deg"], "pitch_deg"),
-            "yaw_deg": clean_numeric(message_data["yaw_deg"], "yaw_deg"),
-            "vavg_1_mps": clean_numeric(message_data["vavg_1_mps"], "vavg_1_mps"),
-            "vavg_2_mps": clean_numeric(message_data["vavg_2_mps"], "vavg_2_mps"),
-            "vavg_3_mps": clean_numeric(message_data["vavg_3_mps"], "vavg_3_mps"),
-            "vstd_1_mps": clean_numeric(message_data["vstd_1_mps"], "vstd_1_mps"),
-            "vstd_2_mps": clean_numeric(message_data["vstd_2_mps"], "vstd_2_mps"),
-            "vstd_3_mps": clean_numeric(message_data["vstd_3_mps"], "vstd_3_mps"),
-            "vpk_1_mps": clean_numeric(message_data["vpk_1_mps"], "vpk_1_mps"),
-            "vpk_2_mps": clean_numeric(message_data["vpk_2_mps"], "vpk_2_mps"),
-            "vpk_3_mps": clean_numeric(message_data["vpk_3_mps"], "vpk_3_mps"),
+            "latitude": float(message_data["latitude"]),
+            "longitude": float(message_data["longitude"]),
+            "altitude": message_data["altitude"],
+            "pressure_mbar": message_data["pressure_mbar"],
+            "temperature_pht_c": message_data["temperature_pht_c"],
+            "temperature_cj_c": message_data["temperature_cj_c"],
+            "temperature_tctip_c": message_data["temperature_tctip_c"],
+            "roll_deg": message_data["roll_deg"],
+            "pitch_deg": message_data["pitch_deg"],
+            "yaw_deg": message_data["yaw_deg"],
+            "vavg_1_mps": message_data["vavg_1_mps"],
+            "vavg_2_mps": message_data["vavg_2_mps"],
+            "vavg_3_mps": message_data["vavg_3_mps"],
+            "vstd_1_mps": message_data["vstd_1_mps"],
+            "vstd_2_mps": message_data["vstd_2_mps"],
+            "vstd_3_mps": message_data["vstd_3_mps"],
+            "vpk_1_mps": message_data["vpk_1_mps"],
+            "vpk_2_mps": message_data["vpk_2_mps"],
+            "vpk_3_mps": message_data["vpk_3_mps"],
             "message": extra_message
         }
 
@@ -149,47 +118,6 @@ def handle_rockblock():
 
     except Exception as e:
         print(f"Error processing data: {e}")  # Enhanced error log
-        return "FAILED,15,Error processing message data", 400
-
-        # Construct the full message_data with raw values, no scaling
-        sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        extra_message = message_data.get("message", "No extra message")
-
-        message_data = {
-            "received_time": datetime.datetime.utcnow().isoformat() + "Z",
-            "sent_time": sent_time_utc,
-            "unix_epoch": message_data.get("unix_epoch"),
-            "siv": message_data.get("siv", ),
-            "latitude": message_data.get("latitude"),
-            "longitude": message_data.get("longitude"),
-            "altitude": message_data.get("altitude"),
-            "pressure_mbar": message_data.get("pressure_mbar"),
-            "temperature_pht_c": message_data.get("temperature_pht_c"),
-            "temperature_cj_c": message_data.get("temperature_cj_c"),
-            "temperature_tctip_c": message_data.get("temperature_tctip_c"),
-            "roll_deg": message_data.get("roll_deg"),
-            "pitch_deg": message_data.get("pitch_deg"),
-            "yaw_deg": message_data.get("yaw_deg"),
-            "vavg_1_mps": message_data.get("vavg_1_mps"),
-            "vavg_2_mps": message_data.get("vavg_2_mps"),
-            "vavg_3_mps": message_data.get("vavg_3_mps"),
-            "vstd_1_mps": message_data.get("vstd_1_mps"),
-            "vstd_2_mps": message_data.get("vstd_2_mps"),
-            "vstd_3_mps": message_data.get("vstd_3_mps"),
-            "vpk_1_mps": message_data.get("vpk_1_mps"),
-            "vpk_2_mps": message_data.get("vpk_2_mps"),
-            "vpk_3_mps": message_data.get("vpk_3_mps"),
-            "message": extra_message
-        }
-
-        message_history.append(message_data)
-        save_flight_data(message_data)
-
-        print(f"Processed and stored message: {message_data}")
-        return "OK,0"
-
-    except Exception as e:
-        print("Error processing data:", e)
         return "FAILED,15,Error processing message data", 400
 
 @app.route('/live-data', methods=['GET'])
