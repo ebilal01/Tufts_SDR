@@ -200,49 +200,58 @@
         </div>
     </div>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
-    <script>
+<script>
     const BASE_URL = "https://tufts-sdr.onrender.com";
-            var map = L.map('map').setView([-43.5407, -68.1379], 5);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-            }).addTo(map);
-            var marker = L.marker([-43.5407, -68.1379]).addTo(map);
 
-            // Update telemetry and map
-            function updateTelemetry() {
-                fetch('/live-data')
-                    .then(response => {
-                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                        return response.json();
-                    })
-                    .then(data => {
-                        if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
-                            document.getElementById('latitude').textContent = data.latitude.toFixed(4);
-                            document.getElementById('longitude').textContent = data.longitude.toFixed(4);
-                            document.getElementById('temperature').textContent = (data.temperature_pht_c || 0).toFixed(1);
-                            document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                            marker.setLatLng([data.latitude, data.longitude]);
-                            map.setView([data.latitude, data.longitude], 5);
-                        } else {
-                            console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
-                        }
-                    })
-                    .catch(error => console.error('Error fetching live data:', error));
-            }
+    // Check if Plotly is loaded
+    if (typeof Plotly === 'undefined') {
+        console.error("Plotly is not loaded. Check the script tag.");
+        return;
+    }
+
+    var map = L.map('map').setView([-43.5407, -68.1379], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+    }).addTo(map);
+    var marker = L.marker([-43.5407, -68.1379]).addTo(map);
+
+    // Update telemetry and map
+    function updateTelemetry() {
+        fetch('/live-data')
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
+            })
+            .then(data => {
+                if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
+                    document.getElementById('lat').textContent = data.latitude.toFixed(4);
+                    document.getElementById('lon').textContent = data.longitude.toFixed(4);
+                    document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
+                    document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
+                    marker.setLatLng([data.latitude, data.longitude]);
+                    map.setView([data.latitude, data.longitude], 5);
+                } else {
+                    console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+                }
+            })
+            .catch(error => console.error('Error fetching live data:', error));
+    }
 
     const config = {
         displayModeBar: true,
         modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
         displaylogo: false,
-        responsive: true 
+        responsive: true
     };
 
     const updateAltitudeGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
 
-        if (timestamps.length === 0 || altitudes.length === 0) return;
+        if (timestamps.length === 0 || altitudes.length === 0) {
+            console.warn("No data for altitude graph:", { timestamps, altitudes });
+            return;
+        }
 
         const graphData = [{
             x: timestamps,
@@ -261,15 +270,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('altitude-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('altitude-graph', graphData, layout, config);
     };
 
@@ -279,7 +279,10 @@
         const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
         const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
 
-        if (timestamps.length === 0) return;
+        if (timestamps.length === 0) {
+            console.warn("No data for temperature graph:", { timestamps, ttip, tcj, tpht });
+            return;
+        }
 
         const tempGraphData = [
             { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
@@ -294,15 +297,6 @@
             margin: { t: 40, b: 60, l: 60, r: 20 },
             height: 250
         };
-
-        const graphDiv = document.getElementById('temperature-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
 
         Plotly.react('temperature-graph', tempGraphData, layout, config);
         const latest = historyData[historyData.length - 1];
@@ -322,7 +316,10 @@
         const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
         const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
 
-        if (timestamps.length === 0) return;
+        if (timestamps.length === 0) {
+            console.warn("No data for orientation graph:", { timestamps, pitch, roll, yaw });
+            return;
+        }
 
         const graphData = [
             { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
@@ -338,15 +335,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('orientation-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('orientation-graph', graphData, layout, config);
     };
 
@@ -354,7 +342,10 @@
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
 
-        if (timestamps.length === 0 || pressures.length === 0) return;
+        if (timestamps.length === 0 || pressures.length === 0) {
+            console.warn("No data for pressure graph:", { timestamps, pressures });
+            return;
+        }
 
         const graphData = [{
             x: timestamps,
@@ -373,15 +364,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('pressure-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('pressure-graph', graphData, layout, config);
     };
 
@@ -391,7 +373,10 @@
         const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
         const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) return;
+        if (timestamps.length === 0) {
+            console.warn("No data for average wind graph:", { timestamps, vavg1, vavg2, vavg3 });
+            return;
+        }
 
         const graphData = [
             { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
@@ -407,15 +392,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('average-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('average-wind-graph', graphData, layout, config);
     };
 
@@ -425,7 +401,10 @@
         const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
         const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) return;
+        if (timestamps.length === 0) {
+            console.warn("No data for std dev wind graph:", { timestamps, vstd1, vstd2, vstd3 });
+            return;
+        }
 
         const graphData = [
             { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
@@ -441,15 +420,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('stddev-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('stddev-wind-graph', graphData, layout, config);
     };
 
@@ -459,7 +429,10 @@
         const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
         const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) return;
+        if (timestamps.length === 0) {
+            console.warn("No data for peak wind graph:", { timestamps, vpk1, vpk2, vpk3 });
+            return;
+        }
 
         const graphData = [
             { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
@@ -475,15 +448,6 @@
             height: 250
         };
 
-        const graphDiv = document.getElementById('peak-wind-graph');
-        if (graphDiv && graphDiv._fullLayout) {
-            const currentLayout = graphDiv._fullLayout;
-            if (currentLayout.xaxis.range && currentLayout.yaxis.range) {
-                layout.xaxis.range = currentLayout.xaxis.range;
-                layout.yaxis.range = currentLayout.yaxis.range;
-            }
-        }
-
         Plotly.react('peak-wind-graph', graphData, layout, config);
     };
 
@@ -497,6 +461,7 @@
                 return;
             }
             const historyData = await response.json();
+            console.log("History data received:", historyData); // Debug data
             if (historyData.length > 0) {
                 updateMap(historyData);
                 updateAltitudeGraph(historyData);
@@ -510,6 +475,8 @@
                     // updateCameraOrientation(historyData); // Uncomment if needed
                     isFirstLoad = false;
                 }
+            } else {
+                console.warn("No data in history:", historyData);
             }
             updateTelemetry(); // Add this to update with live data
         } catch (error) {
@@ -521,20 +488,20 @@
         await fetchAndUpdateAll();
     };
 
-    window.onload = async () => {
-        await fetchHistory();
-        setInterval(fetchAndUpdateAll, 5000); // Adjusted to 5 seconds to reduce load
+    // Ensure DOM and Plotly are ready before initializing
+    document.addEventListener("DOMContentLoaded", async () => {
+        if (typeof Plotly !== 'undefined') {
+            await fetchHistory();
+            setInterval(fetchAndUpdateAll, 5000); // Adjusted to 5 seconds to reduce load
 
-        const aboutButton = document.getElementById('about-toggle-btn');
-        const aboutSection = document.getElementById('about-section');
-        aboutButton.addEventListener('click', () => {
-            aboutSection.scrollIntoView({ behavior: 'smooth' });
-        });
-    };
-
-    document.addEventListener("DOMContentLoaded", function () {
-        fetchMessageHistory();
-        fetchLatestMessage();
+            const aboutButton = document.getElementById('about-toggle-btn');
+            const aboutSection = document.getElementById('about-section');
+            aboutButton.addEventListener('click', () => {
+                aboutSection.scrollIntoView({ behavior: 'smooth' });
+            });
+        } else {
+            console.error("Plotly not loaded after DOM content loaded.");
+        }
     });
 
     async function fetchLatestMessage() {
