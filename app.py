@@ -52,7 +52,6 @@ def index():
     return render_template('index.html')
 
 @app.route('/rockblock', methods=['POST'])
-@app.route('/rockblock', methods=['POST'])
 def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
@@ -92,37 +91,35 @@ def handle_rockblock():
                 print(f"⚠️ Parse error for {key}: {e}")
                 continue
 
-        # Construct the full message_data with raw values, ensuring clean latitude
-        sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        extra_message = message_data.get("message", "No extra message")
+        # Construct the full message_data without zero fallbacks
+        sent_time_utc = datetime.datetime.fromtimestamp(message_data["unix_epoch"], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+        extra_message = message_data["message"]
 
-        # Explicitly clean and convert latitude and longitude
-        latitude_raw = message_data.get("latitude", "0.0")
-        longitude_raw = message_data.get("longitude", "0.0")
+        # Use raw values without fallbacks, raising KeyError if missing
         message_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
-            "unix_epoch": message_data.get("unix_epoch", 0),
-            "siv": message_data.get("siv", 0),
-            "latitude": float(str(latitude_raw).rstrip('}')),
-            "longitude": float(str(longitude_raw).rstrip('}')),
-            "altitude": message_data.get("altitude", 0),
-            "pressure_mbar": message_data.get("pressure_mbar", 0),
-            "temperature_pht_c": message_data.get("temperature_pht_c", 0),
-            "temperature_cj_c": message_data.get("temperature_cj_c", 0),
-            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0),
-            "roll_deg": message_data.get("roll_deg", 0),
-            "pitch_deg": message_data.get("pitch_deg", 0),
-            "yaw_deg": message_data.get("yaw_deg", 0),
-            "vavg_1_mps": message_data.get("vavg_1_mps", 0),
-            "vavg_2_mps": message_data.get("vavg_2_mps", 0),
-            "vavg_3_mps": message_data.get("vavg_3_mps", 0),
-            "vstd_1_mps": message_data.get("vstd_1_mps", 0),
-            "vstd_2_mps": message_data.get("vstd_2_mps", 0),
-            "vstd_3_mps": message_data.get("vstd_3_mps", 0),
-            "vpk_1_mps": message_data.get("vpk_1_mps", 0),
-            "vpk_2_mps": message_data.get("vpk_2_mps", 0),
-            "vpk_3_mps": message_data.get("vpk_3_mps", 0),
+            "unix_epoch": message_data["unix_epoch"],
+            "siv": message_data["siv"],
+            "latitude": float(str(message_data["latitude"]).rstrip('}')),
+            "longitude": float(str(message_data["longitude"]).rstrip('}')),
+            "altitude": message_data["altitude"],
+            "pressure_mbar": message_data["pressure_mbar"],
+            "temperature_pht_c": message_data["temperature_pht_c"],
+            "temperature_cj_c": message_data["temperature_cj_c"],
+            "temperature_tctip_c": message_data["temperature_tctip_c"],
+            "roll_deg": message_data["roll_deg"],
+            "pitch_deg": message_data["pitch_deg"],
+            "yaw_deg": message_data["yaw_deg"],
+            "vavg_1_mps": message_data["vavg_1_mps"],
+            "vavg_2_mps": message_data["vavg_2_mps"],
+            "vavg_3_mps": message_data["vavg_3_mps"],
+            "vstd_1_mps": message_data["vstd_1_mps"],
+            "vstd_2_mps": message_data["vstd_2_mps"],
+            "vstd_3_mps": message_data["vstd_3_mps"],
+            "vpk_1_mps": message_data["vpk_1_mps"],
+            "vpk_2_mps": message_data["vpk_2_mps"],
+            "vpk_3_mps": message_data["vpk_3_mps"],
             "message": extra_message
         }
 
