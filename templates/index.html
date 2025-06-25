@@ -212,10 +212,12 @@ function updateTelemetry() {
     fetch('/live-data')
         .then(response => {
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            return response.json();
+            return response.text();  // Get raw text first
         })
-        .then(data => {
-            console.log("Raw live data:", data);  // Log raw data
+        .then(text => {
+            const data = JSON.parse(text);  // Parse to object
+            console.log("Raw live data text:", text);  // Log raw response
+            console.log("Parsed live data:", data);  // Log parsed object
             if (data.latitude !== "No data" && data.longitude !== "No data") {
                 if (!isNaN(data.latitude) && !isNaN(data.longitude)) {
                     document.getElementById('lat').textContent = data.latitude.toFixed(4);
