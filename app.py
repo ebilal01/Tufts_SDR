@@ -80,8 +80,6 @@ def handle_rockblock():
                 key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
                 if value.endswith('}'):
                     value = value.rstrip('}')  # Remove trailing '}' if present
-                if key == "longitude":  # Debug longitude specifically
-                    print(f"Raw longitude value: {value}")
                 if value:
                     if value.isdigit():
                         message_data[key] = int(value)
