@@ -203,71 +203,33 @@
 
     <script>
     const BASE_URL = "https://tufts-sdr.onrender.com";
+            var map = L.map('map').setView([-43.5407, -68.1379], 5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+            }).addTo(map);
+            var marker = L.marker([-43.5407, -68.1379]).addTo(map);
 
-    const map = L.map('map').setView([0, 0], 2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-
-    const flightPath = L.polyline([], { color: 'red' }).addTo(map);
-    const marker = L.marker([0, 0]).addTo(map);
-    let hasUserInteracted = false;
-
-    map.on('zoomstart', () => { hasUserInteracted = true; });
-
-    const updateMap = (historyData) => {
-        flightPath.setLatLngs([]);
-        let prevLng = null;
-        
-        historyData.forEach(data => {
-            if (data.latitude && data.longitude) {
-                let lat = parseFloat(data.latitude);
-                let lng = parseFloat(data.longitude);
-                if (!isNaN(lat) && !isNaN(lng)) {
-                    if (prevLng !== null) {
-                        while (lng - prevLng > 180) lng -= 360;
-                        while (lng - prevLng < -180) lng += 360;
-                    }
-                    const latLng = [lat, lng];
-                    flightPath.addLatLng(latLng);
-                    prevLng = lng;
-                }
+            // Update telemetry and map
+            function updateTelemetry() {
+                fetch('/live-data')
+                    .then(response => {
+                        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
+                            document.getElementById('latitude').textContent = data.latitude.toFixed(4);
+                            document.getElementById('longitude').textContent = data.longitude.toFixed(4);
+                            document.getElementById('temperature').textContent = (data.temperature_pht_c || 0).toFixed(1);
+                            document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
+                            marker.setLatLng([data.latitude, data.longitude]);
+                            map.setView([data.latitude, data.longitude], 5);
+                        } else {
+                            console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+                        }
+                    })
+                    .catch(error => console.error('Error fetching live data:', error));
             }
-        });
-        
-        const latest = historyData[historyData.length - 1];
-        if (latest && latest.latitude && latest.longitude) {
-            let lat = parseFloat(latest.latitude);
-            let lon = parseFloat(latest.longitude);
-            if (!isNaN(lat) && !isNaN(lon)) {
-                marker.setLatLng([lat, lon]);
-                document.getElementById('lat').textContent = lat.toFixed(6);
-                document.getElementById('lon').textContent = lon.toFixed(6);
-                if (!hasUserInteracted && flightPath.getLatLngs().length > 1) {
-                    map.fitBounds(flightPath.getBounds());
-                }
-            }
-        }
-    };
-
-    function updateTelemetry() {
-        fetch('/live-data')
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(parseFloat(data.latitude)) && !isNaN(parseFloat(data.longitude))) {
-                    let lat = parseFloat(data.latitude);
-                    let lon = parseFloat(data.longitude);
-                    document.getElementById('lat').textContent = lat.toFixed(6);
-                    document.getElementById('lon').textContent = lon.toFixed(6);
-                    document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
-                    document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                    marker.setLatLng([lat, lon]);
-                    map.setView([lat, lon], 5);
-                }
-            })
-            .catch(error => console.error('Error fetching live data:', error));
-    }
 
     const config = {
         displayModeBar: true,
