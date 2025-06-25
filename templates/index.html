@@ -264,6 +264,8 @@
                     document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
                     marker.setLatLng([lat, lon]);
                     map.setView([lat, lon], 5);
+                } else {
+                    console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
                 }
             })
             .catch(error => console.error('Error fetching live data:', error));
@@ -549,7 +551,7 @@
                     isFirstLoad = false;
                 }
             }
-            updateTelemetry(); // Add this to update with live data
+            updateTelemetry(); // Use live data for real-time marker update
         } catch (error) {
             console.error("Error fetching history:", error);
         }
@@ -561,7 +563,7 @@
 
     window.onload = async () => {
         await fetchHistory();
-        setInterval(fetchAndUpdateAll, 5000); // Adjusted to 5 seconds to reduce load
+        setInterval(fetchAndUpdateAll, 5000); // Match the 5-second interval from the working example
 
         const aboutButton = document.getElementById('about-toggle-btn');
         const aboutSection = document.getElementById('about-section');
