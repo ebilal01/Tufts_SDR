@@ -57,7 +57,7 @@ def handle_rockblock():
     imei = data_json.get('imei')
     data = data_json.get('data')
 
-    print(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}")  # Enhanced log
+    print(f"Received POST /rockblock - IMEI: {imei}, Data: {data}")
 
     if imei != "301434060195570":
         print("Invalid credentials")
@@ -71,19 +71,15 @@ def handle_rockblock():
         # Decode hex to bytes and then to text
         byte_data = bytearray.fromhex(data)
         message_text = byte_data.decode('utf-8', errors='ignore').strip()
-        print(f"Decoded message text: {message_text}")  # Log decoded text
-
-        # Remove padding and attempt to parse as key-value pairs
-        if message_text.startswith("XXXXXX"):
-            message_text = message_text[6:]  # Strip "XXXXXX" prefix
-        print(f"Stripped message text: {message_text}")  # Log after stripping
 
         # Parse the text message into a dictionary
         message_data = {}
-        pairs = [pair.strip() for pair in message_text.replace('}', '').split(',') if ':' in pair]
+        pairs = [pair.strip() for pair in message_text.split(',') if ':' in pair]
         for pair in pairs:
             try:
                 key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
+                if value.endswith('}'):
+                    value = value.rstrip('}')  # Remove trailing '}' if present
                 if value:
                     if value.isdigit():
                         message_data[key] = int(value)
@@ -91,48 +87,38 @@ def handle_rockblock():
                         message_data[key] = float(value)
                     else:
                         message_data[key] = value
-                print(f"Parsed pair: {key} = {value}")  # Log each pair
             except ValueError as e:
                 print(f"⚠️ Parse error for {key}: {e}")
                 continue
 
-        # Log the raw parsed data
-        print(f"Raw parsed data: {message_data}")
-
-        # Check for required keys and raise error if missing
-        required_keys = ["unix_epoch", "siv", "latitude", "longitude", "altitude", "message"]
-        missing_keys = [key for key in required_keys if key not in message_data]
-        if missing_keys:
-            raise KeyError(f"Missing required keys: {missing_keys}")
-
-        # Construct the full message_data with raw values
-        sent_time_utc = datetime.datetime.fromtimestamp(message_data["unix_epoch"], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        extra_message = message_data["message"]
+        # Construct the full message_data with defaults and transformations
+        sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
+        extra_message = message_data.get("message", "No extra message")
 
         message_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
-            "unix_epoch": message_data["unix_epoch"],
-            "siv": message_data["siv"],
-            "latitude": float(message_data["latitude"]),
-            "longitude": float(message_data["longitude"]),
-            "altitude": message_data["altitude"],
-            "pressure_mbar": message_data["pressure_mbar"],
-            "temperature_pht_c": message_data["temperature_pht_c"],
-            "temperature_cj_c": message_data["temperature_cj_c"],
-            "temperature_tctip_c": message_data["temperature_tctip_c"],
-            "roll_deg": message_data["roll_deg"],
-            "pitch_deg": message_data["pitch_deg"],
-            "yaw_deg": message_data["yaw_deg"],
-            "vavg_1_mps": message_data["vavg_1_mps"],
-            "vavg_2_mps": message_data["vavg_2_mps"],
-            "vavg_3_mps": message_data["vavg_3_mps"],
-            "vstd_1_mps": message_data["vstd_1_mps"],
-            "vstd_2_mps": message_data["vstd_2_mps"],
-            "vstd_3_mps": message_data["vstd_3_mps"],
-            "vpk_1_mps": message_data["vpk_1_mps"],
-            "vpk_2_mps": message_data["vpk_2_mps"],
-            "vpk_3_mps": message_data["vpk_3_mps"],
+            "unix_epoch": message_data.get("unix_epoch", 0),
+            "siv": message_data.get("siv", 0),
+            "latitude": message_data.get("latitude", 0.0),
+            "longitude": message_data.get("longitude", 0.0),
+            "altitude": message_data.get("altitude", 0),
+            "pressure_mbar": message_data.get("pressure_mbar", 0) / 10.0,
+            "temperature_pht_c": message_data.get("temperature_pht_c", 0) / 10.0,
+            "temperature_cj_c": message_data.get("temperature_cj_c", 0) / 10.0,
+            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0) / 10.0,
+            "roll_deg": message_data.get("roll_deg", 0) / 10.0,
+            "pitch_deg": message_data.get("pitch_deg", 0) / 10.0,
+            "yaw_deg": message_data.get("yaw_deg", 0) / 10.0,
+            "vavg_1_mps": message_data.get("vavg_1_mps", 0) / 1000.0,
+            "vavg_2_mps": message_data.get("vavg_2_mps", 0) / 1000.0,
+            "vavg_3_mps": message_data.get("vavg_3_mps", 0) / 1000.0,
+            "vstd_1_mps": message_data.get("vstd_1_mps", 0) / 100.0,
+            "vstd_2_mps": message_data.get("vstd_2_mps", 0) / 100.0,
+            "vstd_3_mps": message_data.get("vstd_3_mps", 0) / 100.0,
+            "vpk_1_mps": message_data.get("vpk_1_mps", 0) / 100.0,
+            "vpk_2_mps": message_data.get("vpk_2_mps", 0) / 100.0,
+            "vpk_3_mps": message_data.get("vpk_3_mps", 0) / 100.0,
             "message": extra_message
         }
 
@@ -143,7 +129,7 @@ def handle_rockblock():
         return "OK,0"
 
     except Exception as e:
-        print(f"Error processing data: {e}")  # Enhanced error log
+        print("Error processing data:", e)
         return "FAILED,15,Error processing message data", 400
 
 @app.route('/live-data', methods=['GET'])
@@ -190,16 +176,16 @@ def animation_data():
         })
     latest_message = message_history[-1]
     telemetry_data = {
-        "rotation": latest_message["yaw_deg"],  # Use yaw for rotation (degrees)
+        "rotation": latest_message["yaw_deg"],
         "position": {
-            "x": 0,  # Keep centered; could use roll/pitch if desired
+            "x": 0,
             "y": 0,
             "z": 0
         },
         "force": {
-            "x": latest_message["vavg_1_mps"],  # Wind velocity X
-            "y": latest_message["vavg_2_mps"],  # Wind velocity Y
-            "z": latest_message["vavg_3_mps"]   # Wind velocity Z
+            "x": latest_message["vavg_1_mps"],
+            "y": latest_message["vavg_2_mps"],
+            "z": latest_message["vavg_3_mps"]
         }
     }
     return jsonify(telemetry_data)
