@@ -207,15 +207,17 @@
     }).addTo(map);
     var marker = L.marker([-43.5407, -68.1379]).addTo(map);
 
-    // Update telemetry and map
-    function updateTelemetry() {
-        fetch('/live-data')
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                if (data.latitude !== "No data" && data.longitude !== "No data" && !isNaN(data.latitude) && !isNaN(data.longitude)) {
+// Update telemetry and map
+function updateTelemetry() {
+    fetch('/live-data')
+        .then(response => {
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            return response.json();
+        })
+        .then(data => {
+            console.log("Raw live data:", data);  // Log raw data
+            if (data.latitude !== "No data" && data.longitude !== "No data") {
+                if (!isNaN(data.latitude) && !isNaN(data.longitude)) {
                     document.getElementById('lat').textContent = data.latitude.toFixed(4);
                     document.getElementById('lon').textContent = data.longitude.toFixed(4);
                     document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
@@ -223,12 +225,14 @@
                     marker.setLatLng([data.latitude, data.longitude]);
                     map.setView([data.latitude, data.longitude], 5);
                 } else {
-                    console.warn("Invalid latitude or longitude:", data.latitude, data.longitude);
+                    console.warn("Invalid latitude or longitude values:", data.latitude, data.longitude);
                 }
-            })
-            .catch(error => console.error('Error fetching live data:', error));
-    }
-
+            } else {
+                console.warn("No valid latitude or longitude data:", data.latitude, data.longitude);
+            }
+        })
+        .catch(error => console.error('Error fetching live data:', error));
+}
     const config = {
         displayModeBar: true,
         modeBarButtonsToRemove: ['toImage', 'sendDataToCloud'],
