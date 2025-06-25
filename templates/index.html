@@ -201,14 +201,6 @@
     </div>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script>
-    const BASE_URL = "https://tufts-sdr.onrender.com";
-
-    // Check if Plotly is loaded
-    if (typeof Plotly === 'undefined') {
-        console.error("Plotly is not loaded. Check the script tag.");
-        return;
-    }
-
     var map = L.map('map').setView([-43.5407, -68.1379], 5);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
@@ -248,10 +240,7 @@
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
 
-        if (timestamps.length === 0 || altitudes.length === 0) {
-            console.warn("No data for altitude graph:", { timestamps, altitudes });
-            return;
-        }
+        if (timestamps.length === 0 || altitudes.length === 0) return;
 
         const graphData = [{
             x: timestamps,
@@ -279,10 +268,7 @@
         const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
         const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
 
-        if (timestamps.length === 0) {
-            console.warn("No data for temperature graph:", { timestamps, ttip, tcj, tpht });
-            return;
-        }
+        if (timestamps.length === 0) return;
 
         const tempGraphData = [
             { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
@@ -316,10 +302,7 @@
         const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
         const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
 
-        if (timestamps.length === 0) {
-            console.warn("No data for orientation graph:", { timestamps, pitch, roll, yaw });
-            return;
-        }
+        if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
@@ -342,10 +325,7 @@
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
 
-        if (timestamps.length === 0 || pressures.length === 0) {
-            console.warn("No data for pressure graph:", { timestamps, pressures });
-            return;
-        }
+        if (timestamps.length === 0 || pressures.length === 0) return;
 
         const graphData = [{
             x: timestamps,
@@ -373,10 +353,7 @@
         const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
         const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) {
-            console.warn("No data for average wind graph:", { timestamps, vavg1, vavg2, vavg3 });
-            return;
-        }
+        if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
@@ -401,10 +378,7 @@
         const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
         const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) {
-            console.warn("No data for std dev wind graph:", { timestamps, vstd1, vstd2, vstd3 });
-            return;
-        }
+        if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
@@ -429,10 +403,7 @@
         const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
         const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
 
-        if (timestamps.length === 0) {
-            console.warn("No data for peak wind graph:", { timestamps, vpk1, vpk2, vpk3 });
-            return;
-        }
+        if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
@@ -451,19 +422,15 @@
         Plotly.react('peak-wind-graph', graphData, layout, config);
     };
 
-    let isFirstLoad = true;
-
     const fetchAndUpdateAll = async () => {
         try {
-            const response = await fetch(`${BASE_URL}/history`);
+            const response = await fetch('/history');
             if (!response.ok) {
                 console.error(`Fetch failed with status: ${response.status}`);
                 return;
             }
             const historyData = await response.json();
-            console.log("History data received:", historyData); // Debug data
             if (historyData.length > 0) {
-                updateMap(historyData);
                 updateAltitudeGraph(historyData);
                 updateTemperatureGraph(historyData);
                 updateOrientationGraph(historyData);
@@ -471,42 +438,29 @@
                 updateAverageWindGraph(historyData);
                 updateStdDevWindGraph(historyData);
                 updatePeakWindGraph(historyData);
-                if (isFirstLoad) {
-                    // updateCameraOrientation(historyData); // Uncomment if needed
-                    isFirstLoad = false;
-                }
             } else {
                 console.warn("No data in history:", historyData);
             }
-            updateTelemetry(); // Add this to update with live data
+            updateTelemetry();
         } catch (error) {
             console.error("Error fetching history:", error);
         }
     };
 
-    const fetchHistory = async () => {
+    window.onload = async () => {
         await fetchAndUpdateAll();
+        setInterval(fetchAndUpdateAll, 5000);
+
+        const aboutButton = document.getElementById('about-toggle-btn');
+        const aboutSection = document.getElementById('about-section');
+        aboutButton.addEventListener('click', () => {
+            aboutSection.scrollIntoView({ behavior: 'smooth' });
+        });
     };
-
-    // Ensure DOM and Plotly are ready before initializing
-    document.addEventListener("DOMContentLoaded", async () => {
-        if (typeof Plotly !== 'undefined') {
-            await fetchHistory();
-            setInterval(fetchAndUpdateAll, 5000); // Adjusted to 5 seconds to reduce load
-
-            const aboutButton = document.getElementById('about-toggle-btn');
-            const aboutSection = document.getElementById('about-section');
-            aboutButton.addEventListener('click', () => {
-                aboutSection.scrollIntoView({ behavior: 'smooth' });
-            });
-        } else {
-            console.error("Plotly not loaded after DOM content loaded.");
-        }
-    });
 
     async function fetchLatestMessage() {
         try {
-            const response = await fetch(`${BASE_URL}/live-data`);
+            const response = await fetch('/live-data');
             if (!response.ok) return;
             const data = await response.json();
             if (data.message) {
@@ -521,7 +475,7 @@
 
     async function fetchMessageHistory() {
         try {
-            const response = await fetch(`${BASE_URL}/message-history`);
+            const response = await fetch('/message-history');
             if (!response.ok) return;
             const historyData = await response.json();
 
@@ -537,6 +491,11 @@
             console.error("Error fetching message history:", error);
         }
     }
+
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchMessageHistory();
+        fetchLatestMessage();
+    });
 </script>
 </body>
 </html>
