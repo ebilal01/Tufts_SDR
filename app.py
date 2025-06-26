@@ -6,6 +6,7 @@ import datetime
 from flask_cors import CORS
 import logging
 import binascii
+from ast import literal_eval
 
 # Configure logging for Render
 logging.basicConfig(filename='app.log', level=logging.INFO,
@@ -74,7 +75,7 @@ def handle_rockblock():
         raw = data.strip()
         if raw.startswith("XXXXXX"):
           raw = raw[6:]
-        message_data = eval(raw)
+        message_data = literal_eval(raw)
 
         # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
