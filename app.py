@@ -59,29 +59,38 @@ def index():
 def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
-    data = data_json.get('data')  # Raw JSON string
+    raw_data = data_json.get('data')  # Raw JSON-like string
 
-    logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}, Length: {len(data) if data else 0} bytes")
+    logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {raw_data}, Length: {len(raw_data) if raw_data else 0} bytes")
 
     if imei != "301434060195570":
         logging.warning("Invalid credentials")
         return "FAILED,10,Invalid login credentials", 400
 
-    if not data:
+    if not raw_data:
         logging.warning("No data provided")
         return "FAILED,16,No data provided", 400
 
     try:
-        raw = data.strip()
-        if raw.startswith("XXXXXX"):
-          raw = raw[6:]
-        message_data = literal_eval(raw)
+        # 🔍 Sanitize raw_data
+        raw = raw_data.strip()
+        if not raw.startswith("{"):
+            raw = "{" + raw  # Fix missing leading brace
 
-        # Construct the full message_data with raw values
+        logging.info(f"Sanitized raw message string: {raw}")
+
+        # ✅ Try parsing with literal_eval (for Python-like dicts)
+        try:
+            message_data = literal_eval(raw)
+        except Exception:
+            logging.warning("literal_eval failed, trying json.loads")
+            message_data = json.loads(raw)
+
+        # Time conversion
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data.get("message", "No extra message")
 
-        message_data = {
+        full_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
             "unix_epoch": message_data.get("unix_epoch", 0),
@@ -108,20 +117,12 @@ def handle_rockblock():
             "message": extra_message
         }
 
-        # Update message_history with the parsed data
-        message_history.append(message_data)
-        save_flight_data(message_data)
+        message_history.append(full_data)
+        save_flight_data(full_data)
 
-        # Optional hex encoding at the end (commented out unless needed)
-        # hex_encoded_data = binascii.hexlify(json.dumps(message_data).encode('utf-8')).decode('utf-8')
-        # logging.info(f"Hex encoded data: {hex_encoded_data}")
-
-        logging.info(f"Processed and stored message: {message_data}")
+        logging.info(f"Processed and stored message: {full_data}")
         return "OK,0"
 
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}, Raw text: {data}")
-        return "FAILED,15,Error processing message data", 400
     except Exception as e:
         logging.error(f"Error processing data: {e}")
         return "FAILED,15,Error processing message data", 400
