@@ -70,34 +70,35 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
-        # Decode hex to bytes and then to text
+        # Decode hex to bytes and then to text with validation
         byte_data = bytearray.fromhex(data)
-        received_text = byte_data.decode('utf-8', errors='replace')  # Use 'replace' to handle invalid bytes
+        received_text = byte_data.decode('utf-8', errors='replace')  # Replace invalid bytes
         expected_length = len(data) // 2
         logging.info(f"Received text (bytes): {list(byte_data)}, Received text (str): {received_text}, "
                      f"Length: {len(received_text)} bytes, Expected: {expected_length} bytes")
 
-        # Extract JSON object with robust boundary detection
+        # Extract JSON object with error correction
         if received_text.startswith("XXXXXX"):
             received_text = received_text[6:]  # Strip "XXXXXX" prefix
-        json_start = received_text.find('{')
-        if json_start >= 0:
-            received_text = received_text[json_start:]
-            json_end = received_text.rfind('}') + 1
-            if json_end > json_start:
-                received_text = received_text[:json_end]
-            else:
-                # Try to find the next valid closing brace if the first fails
-                json_end = received_text.rfind('}', json_start + 1) + 1
-                if json_end > json_start:
-                    received_text = received_text[:json_end]
-                else:
-                    raise ValueError("No valid JSON object found in received text")
-        else:
+        json_text = ""
+        brace_count = 0
+        for char in received_text:
+            if char == '{':
+                brace_count += 1
+                json_text += char
+            elif char == '}':
+                brace_count -= 1
+                json_text += char
+                if brace_count == 0:
+                    break
+            elif brace_count > 0:
+                json_text += char
+        if not json_text or '{' not in json_text:
             raise ValueError("No valid JSON object found in received text")
+        received_text = json_text
         logging.info(f"Stripped received text: {received_text}, Length: {len(received_text)} bytes")
 
-        # Parse JSON with fallback
+        # Parse JSON with prioritized fallback
         try:
             message_data = json.loads(received_text)
             required_keys = ["altitude", "latitude", "longitude", "unix_epoch", "message"]
@@ -109,11 +110,11 @@ def handle_rockblock():
         except json.JSONDecodeError as e:
             logging.error(f"JSON decode error: {e}, Raw text: {received_text}")
             message_data = {}
-            keys = ["altitude", "latitude", "longitude", "unix_epoch", "message", "siv", "roll_deg", "pitch_deg", "yaw_deg",
-                    "vavg_1_mps", "vavg_2_mps", "vavg_3_mps", "vstd_1_mps", "vstd_2_mps", "vstd_3_mps",
-                    "vpk_1_mps", "vpk_2_mps", "vpk_3_mps", "pressure_mbar", "temperature_pht_c",
-                    "temperature_cj_c", "temperature_tctip_c"]
-            for key in keys:
+            priority_keys = ["altitude", "latitude", "longitude", "unix_epoch", "message"]
+            all_keys = priority_keys + ["siv", "roll_deg", "pitch_deg", "yaw_deg", "vavg_1_mps", "vavg_2_mps", "vavg_3_mps",
+                                      "vstd_1_mps", "vstd_2_mps", "vstd_3_mps", "vpk_1_mps", "vpk_2_mps", "vpk_3_mps",
+                                      "pressure_mbar", "temperature_pht_c", "temperature_cj_c", "temperature_tctip_c"]
+            for key in all_keys:
                 try:
                     start_idx = received_text.index(f'"{key}"')
                     value_start = received_text.index(':', start_idx) + 1
@@ -126,9 +127,9 @@ def handle_rockblock():
                     elif value.startswith('"') and value.endswith('"'):
                         message_data[key] = value.strip('"')
                 except (ValueError, IndexError):
-                    message_data[key] = 0
+                    message_data[key] = 0 if key not in priority_keys else message_data.get(key, 0)
             logging.warning(f"Partial JSON data salvaged: {message_data}")
-            if not any(message_data.values()):
+            if not any(message_data.get(k, 0) for k in priority_keys):
                 raise
 
         # Construct the full message_data
