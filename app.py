@@ -6,7 +6,7 @@ import datetime
 from flask_cors import CORS
 import logging
 
-# Configure logging for Render
+# Configure logging for Pi
 logging.basicConfig(filename='app.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -15,8 +15,8 @@ CORS(app)
 app.config['MAX_CONTENT_LENGTH'] = None  # No byte limit
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Persistent storage path for Render Disk
-DATA_DIR = '/opt/render/data'
+# Persistent storage path for Pi
+DATA_DIR = '/home/rtlsdr_pi/lora_project/data'  # Adjusted for Pi home directory
 FLIGHT_HISTORY_FILE = os.path.join(DATA_DIR, 'flight_data.json')
 
 message_history = []
@@ -24,7 +24,7 @@ message_history = []
 def save_flight_data(flight_data):
     try:
         if not os.path.exists(DATA_DIR):
-            os.makedirs(DATA_DIR, exist_ok=True)  # Use exist_ok to avoid race conditions
+            os.makedirs(DATA_DIR, exist_ok=True)
         if not os.path.exists(FLIGHT_HISTORY_FILE):
             with open(FLIGHT_HISTORY_FILE, 'w') as f:
                 json.dump([], f)
@@ -72,38 +72,49 @@ def handle_rockblock():
     try:
         # Decode hex to bytes and then to text
         byte_data = bytearray.fromhex(data)
-        received_text = byte_data.decode('utf-8', errors='ignore').strip()
+        received_text = byte_data.decode('utf-8', errors='ignore')
         logging.info(f"Received text (bytes): {list(byte_data)}, Received text (str): {received_text}, Length: {len(received_text)} bytes")
 
-        # Remove padding and ensure JSON starts correctly
+        # Remove padding and extract JSON object
         if received_text.startswith("XXXXXX"):
             received_text = received_text[6:]  # Strip "XXXXXX" prefix
-        received_text = received_text.lstrip()  # Remove leading whitespace or garbage
+        received_text = received_text.strip()  # Remove leading/trailing whitespace
         json_start = received_text.find('{')
-        if json_start >= 0:
-            received_text = received_text[json_start:]  # Start from first {
+        json_end = received_text.rfind('}') + 1
+        if json_start >= 0 and json_end > json_start:
+            received_text = received_text[json_start:json_end]  # Extract complete JSON
         else:
-            raise ValueError("No JSON object found in received text")
-        if received_text.endswith("\n") or received_text.endswith("}"):
-            received_text = received_text.rstrip("\n}")  # Remove newline or trailing }
+            raise ValueError("No valid JSON object found in received text")
         logging.info(f"Stripped received text: {received_text}, Length: {len(received_text)} bytes")
 
-        # Validate and parse JSON
+        # Parse JSON with error tolerance
         try:
             message_data = json.loads(received_text)
-            # Validate required fields are present
-            required_keys = ["altitude", "latitude", "longitude", "unix_epoch", "message"]
-            missing_keys = [key for key in required_keys if key not in message_data]
-            if missing_keys:
-                logging.warning(f"Missing keys in JSON: {missing_keys}")
-                raise ValueError(f"Missing required keys: {missing_keys}")
             logging.info(f"Parsed JSON data: {message_data}")
         except json.JSONDecodeError as e:
             logging.error(f"JSON decode error: {e}, Raw text: {received_text}")
-            raise
-        except ValueError as e:
-            logging.error(f"Validation error: {e}")
-            raise
+            # Salvage partial JSON by parsing key-value pairs
+            message_data = {}
+            for key in ["altitude", "latitude", "longitude", "unix_epoch", "message", "siv", "roll_deg", "pitch_deg", "yaw_deg",
+                       "vavg_1_mps", "vavg_2_mps", "vavg_3_mps", "vstd_1_mps", "vstd_2_mps", "vstd_3_mps",
+                       "vpk_1_mps", "vpk_2_mps", "vpk_3_mps", "pressure_mbar", "temperature_pht_c",
+                       "temperature_cj_c", "temperature_tctip_c"]:
+                try:
+                    start_idx = received_text.index(f'"{key}"')
+                    value_start = received_text.index(':', start_idx) + 1
+                    value_end = received_text.index(',', value_start) if ',' in received_text[value_start:] else received_text.index('}', value_start)
+                    value = received_text[value_start:value_end].strip()
+                    if value.isdigit():
+                        message_data[key] = int(value)
+                    elif value.replace('.', '').isdigit() and '.' in value:
+                        message_data[key] = float(value)
+                    elif value.startswith('"') and value.endswith('"'):
+                        message_data[key] = value.strip('"')
+                except (ValueError, IndexError):
+                    message_data[key] = 0
+            logging.warning(f"Partial JSON data salvaged: {message_data}")
+            if not message_data:
+                raise
 
         # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
