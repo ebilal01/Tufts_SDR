@@ -58,7 +58,7 @@ def index():
 def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
-    data = data_json.get('data')
+    data = data_json.get('data')  # Raw JSON string
 
     logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}, Length: {len(data) if data else 0} bytes")
 
@@ -71,61 +71,9 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
-        # Decode hex back to original string
-        byte_data = binascii.unhexlify(data)
-        original_string = byte_data.decode('utf-8', errors='replace')
-        logging.info(f"Decoded original string: {original_string}, Length: {len(original_string)} bytes")
-
-        # Extract fields character by character
-        message_data = {}
-        current_key = ""
-        current_value = ""
-        in_quotes = False
-        in_value = False
-
-        for char in original_string:
-            if char == '"':
-                if not in_quotes and not in_value:
-                    in_quotes = True
-                elif in_quotes and not in_value:
-                    in_value = True
-                elif in_quotes and in_value:
-                    message_data[current_key] = current_value
-                    current_key = ""
-                    current_value = ""
-                    in_quotes = False
-                    in_value = False
-            elif char == ':' and in_quotes:
-                current_key = current_value
-                current_value = ""
-                in_quotes = False
-            elif char == ',' and in_value:
-                message_data[current_key] = current_value
-                current_key = ""
-                current_value = ""
-                in_value = False
-            elif in_value:
-                current_value += char
-            elif in_quotes:
-                current_value += char
-
-        # Handle the last field if string ends without a comma
-        if current_key and current_value:
-            message_data[current_key] = current_value
-
-        # Convert values to appropriate types
-        for key, value in message_data.items():
-            try:
-                if value.isdigit():
-                    message_data[key] = int(value)
-                elif value.replace('.', '').isdigit() and '.' in value:
-                    message_data[key] = float(value)
-                elif value.startswith('"') and value.endswith('"'):
-                    message_data[key] = value.strip('"')
-            except (ValueError, AttributeError):
-                message_data[key] = value  # Keep as string if conversion fails
-
-        logging.info(f"Extracted message data: {message_data}")
+        # Parse the raw JSON string directly
+        message_data = json.loads(data)
+        logging.info(f"Parsed JSON data: {message_data}")
 
         # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -158,12 +106,20 @@ def handle_rockblock():
             "message": extra_message
         }
 
+        # Update message_history with the parsed data
         message_history.append(message_data)
         save_flight_data(message_data)
+
+        # Optional hex encoding at the end (commented out unless needed)
+        # hex_encoded_data = binascii.hexlify(json.dumps(message_data).encode('utf-8')).decode('utf-8')
+        # logging.info(f"Hex encoded data: {hex_encoded_data}")
 
         logging.info(f"Processed and stored message: {message_data}")
         return "OK,0"
 
+    except json.JSONDecodeError as e:
+        logging.error(f"JSON decode error: {e}, Raw text: {data}")
+        return "FAILED,15,Error processing message data", 400
     except Exception as e:
         logging.error(f"Error processing data: {e}")
         return "FAILED,15,Error processing message data", 400
