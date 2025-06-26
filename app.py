@@ -57,7 +57,7 @@ def handle_rockblock():
     imei = data_json.get('imei')
     data = data_json.get('data')
 
-    print(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}")  # Log raw input
+    print(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}")  # Enhanced log
 
     if imei != "301434060195570":
         print("Invalid credentials")
@@ -70,22 +70,40 @@ def handle_rockblock():
     try:
         # Decode hex to bytes and then to text
         byte_data = bytearray.fromhex(data)
-        received_text = byte_data.decode('utf-8', errors='ignore').strip()
-        print(f"Received text: {received_text}")  # Log received text
+        message_text = byte_data.decode('utf-8', errors='ignore').strip()
+        print(f"Decoded message text: {message_text}")  # Log decoded text
 
-        # Remove padding and attempt to parse as JSON
-        if received_text.startswith("XXXXXX"):
-            received_text = received_text[6:]  # Strip "XXXXXX" prefix
-        print(f"Stripped received text: {received_text}")  # Log after stripping
+        # Remove padding and attempt to parse as key-value pairs
+        if message_text.startswith("XXXXXX"):
+            message_text = message_text[6:]  # Strip "XXXXXX" prefix
+        print(f"Stripped message text: {message_text}")  # Log after stripping
 
-        # Parse the JSON string
-        try:
-            message_data = json.loads(received_text)
-        except json.JSONDecodeError as e:
-            print(f"JSON decode error: {e}, Raw text: {received_text}")
-            raise  # Re-raise to be caught by the outer except
+        # Parse the text message into a dictionary
+        message_data = {}
+        pairs = [pair.strip() for pair in message_text.replace('}', '').split(',') if ':' in pair]
+        for pair in pairs:
+            try:
+                key, value = [p.strip().strip('"') for p in pair.split(':', 1)]
+                if value:
+                    if value.isdigit():
+                        message_data[key] = int(value)
+                    elif value.replace('.', '').replace('-', '').isdigit():
+                        message_data[key] = float(value)
+                    else:
+                        message_data[key] = value
+                print(f"Parsed pair: {key} = {value}")  # Log each pair
+            except ValueError as e:
+                print(f"⚠️ Parse error for {key}: {e}")
+                continue
 
-        print(f"Parsed JSON data: {message_data}")  # Log parsed data
+        # Log the raw parsed data
+        print(f"Raw parsed data: {message_data}")
+
+        # Check for required keys and raise error if missing
+        required_keys = ["unix_epoch", "siv", "latitude", "longitude", "altitude", "message"]
+        missing_keys = [key for key in required_keys if key not in message_data]
+        if missing_keys:
+            raise KeyError(f"Missing required keys: {missing_keys}")
 
         # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data["unix_epoch"], datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -172,16 +190,16 @@ def animation_data():
         })
     latest_message = message_history[-1]
     telemetry_data = {
-        "rotation": latest_message["yaw_deg"],
+        "rotation": latest_message["yaw_deg"],  # Use yaw for rotation (degrees)
         "position": {
-            "x": 0,
+            "x": 0,  # Keep centered; could use roll/pitch if desired
             "y": 0,
             "z": 0
         },
         "force": {
-            "x": latest_message["vavg_1_mps"],
-            "y": latest_message["vavg_2_mps"],
-            "z": latest_message["vavg_3_mps"]
+            "x": latest_message["vavg_1_mps"],  # Wind velocity X
+            "y": latest_message["vavg_2_mps"],  # Wind velocity Y
+            "z": latest_message["vavg_3_mps"]   # Wind velocity Z
         }
     }
     return jsonify(telemetry_data)
