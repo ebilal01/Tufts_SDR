@@ -71,9 +71,10 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
-        # Parse the raw JSON string directly
-        message_data = json.loads(data)
-        logging.info(f"Parsed JSON data: {message_data}")
+        raw = data.strip()
+        if raw.startswith("XXXXXX"):
+          raw = raw[6:]
+        message_data = eval(raw)
 
         # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
