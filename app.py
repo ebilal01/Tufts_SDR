@@ -5,6 +5,7 @@ from flask_socketio import SocketIO
 import datetime
 from flask_cors import CORS
 import logging
+import binascii
 
 # Configure logging for Render
 logging.basicConfig(filename='app.log', level=logging.INFO,
@@ -70,69 +71,63 @@ def handle_rockblock():
         return "FAILED,16,No data provided", 400
 
     try:
-        # Decode hex to bytes and then to text with validation
-        byte_data = bytearray.fromhex(data)
-        received_text = byte_data.decode('utf-8', errors='replace')  # Replace invalid bytes
-        expected_length = len(data) // 2
-        logging.info(f"Received text (bytes): {list(byte_data)}, Received text (str): {received_text}, "
-                     f"Length: {len(received_text)} bytes, Expected: {expected_length} bytes")
+        # Decode hex back to original string
+        byte_data = binascii.unhexlify(data)
+        original_string = byte_data.decode('utf-8', errors='replace')
+        logging.info(f"Decoded original string: {original_string}, Length: {len(original_string)} bytes")
 
-        # Extract JSON object with error correction
-        if received_text.startswith("XXXXXX"):
-            received_text = received_text[6:]  # Strip "XXXXXX" prefix
-        json_text = ""
-        brace_count = 0
-        for char in received_text:
-            if char == '{':
-                brace_count += 1
-                json_text += char
-            elif char == '}':
-                brace_count -= 1
-                json_text += char
-                if brace_count == 0:
-                    break
-            elif brace_count > 0:
-                json_text += char
-        if not json_text or '{' not in json_text:
-            raise ValueError("No valid JSON object found in received text")
-        received_text = json_text
-        logging.info(f"Stripped received text: {received_text}, Length: {len(received_text)} bytes")
+        # Extract fields character by character
+        message_data = {}
+        current_key = ""
+        current_value = ""
+        in_quotes = False
+        in_value = False
 
-        # Parse JSON with prioritized fallback
-        try:
-            message_data = json.loads(received_text)
-            required_keys = ["altitude", "latitude", "longitude", "unix_epoch", "message"]
-            missing_keys = [key for key in required_keys if key not in message_data]
-            if missing_keys:
-                logging.warning(f"Missing keys in JSON: {missing_keys}")
-                raise ValueError(f"Missing required keys: {missing_keys}")
-            logging.info(f"Parsed JSON data: {message_data}")
-        except json.JSONDecodeError as e:
-            logging.error(f"JSON decode error: {e}, Raw text: {received_text}")
-            message_data = {}
-            priority_keys = ["altitude", "latitude", "longitude", "unix_epoch", "message"]
-            all_keys = priority_keys + ["siv", "roll_deg", "pitch_deg", "yaw_deg", "vavg_1_mps", "vavg_2_mps", "vavg_3_mps",
-                                      "vstd_1_mps", "vstd_2_mps", "vstd_3_mps", "vpk_1_mps", "vpk_2_mps", "vpk_3_mps",
-                                      "pressure_mbar", "temperature_pht_c", "temperature_cj_c", "temperature_tctip_c"]
-            for key in all_keys:
-                try:
-                    start_idx = received_text.index(f'"{key}"')
-                    value_start = received_text.index(':', start_idx) + 1
-                    value_end = next((received_text.index(c, value_start) for c in [',', '}'] if c in received_text[value_start:]), len(received_text))
-                    value = received_text[value_start:value_end].strip()
-                    if value.isdigit():
-                        message_data[key] = int(value)
-                    elif value.replace('.', '').isdigit() and '.' in value:
-                        message_data[key] = float(value)
-                    elif value.startswith('"') and value.endswith('"'):
-                        message_data[key] = value.strip('"')
-                except (ValueError, IndexError):
-                    message_data[key] = 0 if key not in priority_keys else message_data.get(key, 0)
-            logging.warning(f"Partial JSON data salvaged: {message_data}")
-            if not any(message_data.get(k, 0) for k in priority_keys):
-                raise
+        for char in original_string:
+            if char == '"':
+                if not in_quotes and not in_value:
+                    in_quotes = True
+                elif in_quotes and not in_value:
+                    in_value = True
+                elif in_quotes and in_value:
+                    message_data[current_key] = current_value
+                    current_key = ""
+                    current_value = ""
+                    in_quotes = False
+                    in_value = False
+            elif char == ':' and in_quotes:
+                current_key = current_value
+                current_value = ""
+                in_quotes = False
+            elif char == ',' and in_value:
+                message_data[current_key] = current_value
+                current_key = ""
+                current_value = ""
+                in_value = False
+            elif in_value:
+                current_value += char
+            elif in_quotes:
+                current_value += char
 
-        # Construct the full message_data
+        # Handle the last field if string ends without a comma
+        if current_key and current_value:
+            message_data[current_key] = current_value
+
+        # Convert values to appropriate types
+        for key, value in message_data.items():
+            try:
+                if value.isdigit():
+                    message_data[key] = int(value)
+                elif value.replace('.', '').isdigit() and '.' in value:
+                    message_data[key] = float(value)
+                elif value.startswith('"') and value.endswith('"'):
+                    message_data[key] = value.strip('"')
+            except (ValueError, AttributeError):
+                message_data[key] = value  # Keep as string if conversion fails
+
+        logging.info(f"Extracted message data: {message_data}")
+
+        # Construct the full message_data with raw values
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data.get("message", "No extra message")
 
