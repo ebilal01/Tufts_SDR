@@ -1,4 +1,4 @@
-from flask import Flask, render_template, jsonify, request, ResponseMore actions
+from flask import Flask, render_template, jsonify, request, Response
 import json
 import os
 from flask_socketio import SocketIO
@@ -59,32 +59,24 @@ def index():
 def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
-    data = data_json.get('data')  # Raw JSON string
     raw_data = data_json.get('data')  # Raw JSON-like string
 
-    logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {data}, Length: {len(data) if data else 0} bytes")
     logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {raw_data}, Length: {len(raw_data) if raw_data else 0} bytes")
 
     if imei != "301434060195570":
         logging.warning("Invalid credentials")
         return "FAILED,10,Invalid login credentials", 400
 
-    if not data:
     if not raw_data:
         logging.warning("No data provided")
         return "FAILED,16,No data provided", 400
 
     try:
-        raw = data.strip()
-        if raw.startswith("XXXXXX"):
-          raw = raw[6:]
-        message_data = literal_eval(raw)
         # 🔍 Sanitize raw_data
         raw = raw_data.strip()
         if not raw.startswith("{"):
             raw = "{" + raw  # Fix missing leading brace
 
-        # Construct the full message_data with raw values
         logging.info(f"Sanitized raw message string: {raw}")
 
         # ✅ Try parsing with literal_eval (for Python-like dicts)
@@ -98,32 +90,39 @@ def handle_rockblock():
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data.get("message", "No extra message")
 
-        message_data = {
         full_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
             "unix_epoch": message_data.get("unix_epoch", 0),
-@@ -108,82 +117,74 @@
+            "siv": message_data.get("siv", 0),
+            "latitude": float(message_data.get("latitude", 0.0)),
+            "longitude": float(message_data.get("longitude", 0.0)),
+            "altitude": message_data.get("altitude", 0),
+            "pressure_mbar": message_data.get("pressure_mbar", 0),
+            "temperature_pht_c": message_data.get("temperature_pht_c", 0),
+            "temperature_cj_c": message_data.get("temperature_cj_c", 0),
+            "temperature_tctip_c": message_data.get("temperature_tctip_c", 0),
+            "roll_deg": message_data.get("roll_deg", 0),
+            "pitch_deg": message_data.get("pitch_deg", 0),
+            "yaw_deg": message_data.get("yaw_deg", 0),
+            "vavg_1_mps": message_data.get("vavg_1_mps", 0),
+            "vavg_2_mps": message_data.get("vavg_2_mps", 0),
+            "vavg_3_mps": message_data.get("vavg_3_mps", 0),
+            "vstd_1_mps": message_data.get("vstd_1_mps", 0),
+            "vstd_2_mps": message_data.get("vstd_2_mps", 0),
+            "vstd_3_mps": message_data.get("vstd_3_mps", 0),
+            "vpk_1_mps": message_data.get("vpk_1_mps", 0),
+            "vpk_2_mps": message_data.get("vpk_2_mps", 0),
+            "vpk_3_mps": message_data.get("vpk_3_mps", 0),
             "message": extra_message
         }
 
-        # Update message_history with the parsed data
-        message_history.append(message_data)
-        save_flight_data(message_data)
         message_history.append(full_data)
         save_flight_data(full_data)
 
-        # Optional hex encoding at the end (commented out unless needed)
-        # hex_encoded_data = binascii.hexlify(json.dumps(message_data).encode('utf-8')).decode('utf-8')
-        # logging.info(f"Hex encoded data: {hex_encoded_data}")
-
-        logging.info(f"Processed and stored message: {message_data}")
         logging.info(f"Processed and stored message: {full_data}")
         return "OK,0"
 
-    except json.JSONDecodeError as e:
-        logging.error(f"JSON decode error: {e}, Raw text: {data}")
-        return "FAILED,15,Error processing message data", 400
     except Exception as e:
         logging.error(f"Error processing data: {e}")
         return "FAILED,15,Error processing message data", 400
