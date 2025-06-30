@@ -119,7 +119,7 @@
 
     <!-- Row 2: Orientation and Pressure -->
     <div class="graph-container">
-        <div id="orientation-graph" class="graph"></div>
+        <div id="peak-wind-graph" class="graph"></div>
         <div id="pressure-graph" class="graph"></div>
     </div>
 
@@ -127,11 +127,6 @@
     <div class="graph-container">
         <div id="average-wind-graph" class="graph"></div>
         <div id="stddev-wind-graph" class="graph"></div>
-    </div>
-
-    <!-- Row 4: Peak Wind -->
-    <div class="graph-container">
-        <div id="peak-wind-graph" class="graph"></div>
     </div>
 
     <div class="image-container">
@@ -205,7 +200,7 @@
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
     }).addTo(map);
-    var marker = L.marker([-43.5407, -68.1379]).addTo(map);
+    var marker = L.marker([0.0,0.0]).addTo(map);
 
 // Update telemetry and map
 function updateTelemetry() {
@@ -302,31 +297,7 @@ function updateTelemetry() {
         }
     };
 
-    const updateOrientationGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const pitch = historyData.map(data => data.pitch_deg).filter(p => p !== undefined);
-        const roll = historyData.map(data => data.roll_deg).filter(r => r !== undefined);
-        const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
-
-        if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
-            { x: timestamps, y: roll, type: 'scatter', mode: 'lines+markers', name: 'Roll (°)', line: { color: 'green' } },
-            { x: timestamps, y: yaw, type: 'scatter', mode: 'lines+markers', name: 'Yaw (°)', line: { color: 'purple' } }
-        ];
-
-        const layout = {
-            title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
-            xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
-            yaxis: { title: { text: "Degrees", standoff: 10 }, automargin: true },
-            margin: { t: 40, b: 60, l: 60, r: 20 },
-            height: 250
-        };
-
-        Plotly.react('orientation-graph', graphData, layout, config);
-    };
-
+    
     const updatePressureGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
@@ -356,15 +327,11 @@ function updateTelemetry() {
     const updateAverageWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
-        const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
-        const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
         const graphData = [
-            { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vavg2, type: 'scatter', mode: 'lines+markers', name: 'Vavg 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vavg3, type: 'scatter', mode: 'lines+markers', name: 'Vavg 3 (m/s)', line: { color: 'blue' } }
+            { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } }
         ];
 
         const layout = {
@@ -381,15 +348,10 @@ function updateTelemetry() {
     const updateStdDevWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
-        const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
-        const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
-
         if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vstd2, type: 'scatter', mode: 'lines+markers', name: 'Vstd 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vstd3, type: 'scatter', mode: 'lines+markers', name: 'Vstd 3 (m/s)', line: { color: 'blue' } }
         ];
 
         const layout = {
@@ -406,15 +368,11 @@ function updateTelemetry() {
     const updatePeakWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
-        const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
-        const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vpk2, type: 'scatter', mode: 'lines+markers', name: 'Vpk 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vpk3, type: 'scatter', mode: 'lines+markers', name: 'Vpk 3 (m/s)', line: { color: 'blue' } }
         ];
 
         const layout = {
