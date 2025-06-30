@@ -213,19 +213,19 @@ function updateTelemetry() {
             const data = JSON.parse(text);  // Parse to object
             console.log("Raw live data text:", text);  // Log raw response
             console.log("Parsed live data:", data);  // Log parsed object
-            if (data.latitude !== "No data" && data.longitude !== "No data") {
+            if (data.lat !== "No data" && data.lon !== "No data") {
                 if (!isNaN(data.latitude) && !isNaN(data.longitude)) {
-                    document.getElementById('lat').textContent = data.latitude.toFixed(4);
-                    document.getElementById('lon').textContent = data.longitude.toFixed(4);
-                    document.getElementById('temp').textContent = (data.temperature_pht_c || 0).toFixed(1);
-                    document.getElementById('pressure').textContent = (data.pressure_mbar || 0).toFixed(1);
-                    marker.setLatLng([data.latitude, data.longitude]);
-                    map.setView([data.latitude, data.longitude], 5);
+                    document.getElementById('lat').textContent = data.lat.toFixed(4);
+                    document.getElementById('lon').textContent = data.lon.toFixed(4);
+                    document.getElementById('temp').textContent = (data.temp_pht_c || 0).toFixed(1);
+                    document.getElementById('pressure').textContent = (data.pres || 0).toFixed(1);
+                    marker.setLatLng([data.lat, data.lon]);
+                    map.setView([data.lat, data.lon], 5);
                 } else {
-                    console.warn("Invalid latitude or longitude values:", data.latitude, data.longitude);
+                    console.warn("Invalid latitude or longitude values:", data.lat, data.lon);
                 }
             } else {
-                console.warn("No valid latitude or longitude data:", data.latitude, data.longitude);
+                console.warn("No valid latitude or longitude data:", data.lat, data.lon);
             }
         })
         .catch(error => console.error('Error fetching live data:', error));
@@ -238,8 +238,8 @@ function updateTelemetry() {
     };
 
     const updateAltitudeGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const altitudes = historyData.map(data => data.altitude).filter(a => a !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const altitudes = historyData.map(data => data.alt).filter(a => a !== undefined);
 
         if (timestamps.length === 0 || altitudes.length === 0) return;
 
@@ -264,17 +264,13 @@ function updateTelemetry() {
     };
 
     const updateTemperatureGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const ttip = historyData.map(data => data.temperature_tctip_c).filter(t => t !== undefined);
-        const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
-        const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const tcj = historyData.map(data => data.temp_cj_c).filter(t => t !== undefined);
 
         if (timestamps.length === 0) return;
 
         const tempGraphData = [
-            { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
             { x: timestamps, y: tcj, type: 'scatter', mode: 'lines+markers', name: 'Tcj (°C)', line: { color: 'orange' } },
-            { x: timestamps, y: tpht, type: 'scatter', mode: 'lines+markers', name: 'Tpht (°C)', line: { color: 'yellow' } }
         ];
 
         const layout = {
@@ -288,10 +284,10 @@ function updateTelemetry() {
         Plotly.react('temperature-graph', tempGraphData, layout, config);
         const latest = historyData[historyData.length - 1];
         if (latest) {
-            if (latest.temperature_cj_c !== undefined) {
+            if (latest.temp_cj_c !== undefined) {
                 document.getElementById("temp").textContent = latest.temperature_tctip_c.toFixed(1);
             }
-            if (latest.pressure_mbar !== undefined) {
+            if (latest.pres !== undefined) {
                 document.getElementById("pressure").textContent = latest.pressure_mbar.toFixed(1);
             }
         }
@@ -299,8 +295,8 @@ function updateTelemetry() {
 
     
     const updatePressureGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const pressures = historyData.map(data => data.pressure_mbar).filter(p => p !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const pressures = historyData.map(data => data.pres).filter(p => p !== undefined);
 
         if (timestamps.length === 0 || pressures.length === 0) return;
 
@@ -325,8 +321,8 @@ function updateTelemetry() {
     };
 
     const updateAverageWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const vavg1 = historyData.map(data => data.vavg_1).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
@@ -346,8 +342,8 @@ function updateTelemetry() {
     };
 
     const updateStdDevWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const vstd1 = historyData.map(data => data.vstd_1).filter(v => v !== undefined);
         if (timestamps.length === 0) return;
 
         const graphData = [
@@ -366,8 +362,8 @@ function updateTelemetry() {
     };
 
     const updatePeakWindGraph = (historyData) => {
-        const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
+        const timestamps = historyData.map(data => data.sent).filter(t => t);
+        const vpk1 = historyData.map(data => data.vpk_1).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
