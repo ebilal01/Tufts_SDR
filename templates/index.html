@@ -270,16 +270,14 @@ function updateTelemetry() {
 
     const updateTemperatureGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
-        const ttip = historyData.map(data => data.temperature_tctip_c).filter(t => t !== undefined);
         const tcj = historyData.map(data => data.temperature_cj_c).filter(t => t !== undefined);
-        const tpht = historyData.map(data => data.temperature_pht_c).filter(t => t !== undefined);
+        
 
         if (timestamps.length === 0) return;
 
         const tempGraphData = [
-            { x: timestamps, y: ttip, type: 'scatter', mode: 'lines+markers', name: 'Ttip (°C)', line: { color: 'red' } },
             { x: timestamps, y: tcj, type: 'scatter', mode: 'lines+markers', name: 'Tcj (°C)', line: { color: 'orange' } },
-            { x: timestamps, y: tpht, type: 'scatter', mode: 'lines+markers', name: 'Tpht (°C)', line: { color: 'yellow' } }
+           
         ];
 
         const layout = {
@@ -309,12 +307,6 @@ function updateTelemetry() {
         const yaw = historyData.map(data => data.yaw_deg).filter(y => y !== undefined);
 
         if (timestamps.length === 0) return;
-
-        const graphData = [
-            { x: timestamps, y: pitch, type: 'scatter', mode: 'lines+markers', name: 'Pitch (°)', line: { color: 'blue' } },
-            { x: timestamps, y: roll, type: 'scatter', mode: 'lines+markers', name: 'Roll (°)', line: { color: 'green' } },
-            { x: timestamps, y: yaw, type: 'scatter', mode: 'lines+markers', name: 'Yaw (°)', line: { color: 'purple' } }
-        ];
 
         const layout = {
             title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
@@ -356,15 +348,11 @@ function updateTelemetry() {
     const updateAverageWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vavg1 = historyData.map(data => data.vavg_1_mps).filter(v => v !== undefined);
-        const vavg2 = historyData.map(data => data.vavg_2_mps).filter(v => v !== undefined);
-        const vavg3 = historyData.map(data => data.vavg_3_mps).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vavg1, type: 'scatter', mode: 'lines+markers', name: 'Vavg 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vavg2, type: 'scatter', mode: 'lines+markers', name: 'Vavg 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vavg3, type: 'scatter', mode: 'lines+markers', name: 'Vavg 3 (m/s)', line: { color: 'blue' } }
         ];
 
         const layout = {
@@ -381,15 +369,10 @@ function updateTelemetry() {
     const updateStdDevWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vstd1 = historyData.map(data => data.vstd_1_mps).filter(v => v !== undefined);
-        const vstd2 = historyData.map(data => data.vstd_2_mps).filter(v => v !== undefined);
-        const vstd3 = historyData.map(data => data.vstd_3_mps).filter(v => v !== undefined);
-
         if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vstd1, type: 'scatter', mode: 'lines+markers', name: 'Vstd 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vstd2, type: 'scatter', mode: 'lines+markers', name: 'Vstd 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vstd3, type: 'scatter', mode: 'lines+markers', name: 'Vstd 3 (m/s)', line: { color: 'blue' } }
         ];
 
         const layout = {
@@ -406,15 +389,11 @@ function updateTelemetry() {
     const updatePeakWindGraph = (historyData) => {
         const timestamps = historyData.map(data => data.received_time).filter(t => t);
         const vpk1 = historyData.map(data => data.vpk_1_mps).filter(v => v !== undefined);
-        const vpk2 = historyData.map(data => data.vpk_2_mps).filter(v => v !== undefined);
-        const vpk3 = historyData.map(data => data.vpk_3_mps).filter(v => v !== undefined);
 
         if (timestamps.length === 0) return;
 
         const graphData = [
             { x: timestamps, y: vpk1, type: 'scatter', mode: 'lines+markers', name: 'Vpk 1 (m/s)', line: { color: 'red' } },
-            { x: timestamps, y: vpk2, type: 'scatter', mode: 'lines+markers', name: 'Vpk 2 (m/s)', line: { color: 'green' } },
-            { x: timestamps, y: vpk3, type: 'scatter', mode: 'lines+markers', name: 'Vpk 3 (m/s)', line: { color: 'blue' } }
         ];
 
         const layout = {
