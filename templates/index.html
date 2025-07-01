@@ -119,7 +119,6 @@
 
     <!-- Row 2: Orientation and Pressure -->
     <div class="graph-container">
-        <div id="orientation-graph" class="graph"></div>
         <div id="pressure-graph" class="graph"></div>
     </div>
 
@@ -308,6 +307,9 @@ function updateTelemetry() {
 
         if (timestamps.length === 0) return;
 
+        const graphData = [
+        ];
+
         const layout = {
             title: { text: "Orientation", font: { size: 14 }, standoff: 10 },
             xaxis: { title: { text: "UTC Time (s)", standoff: 10 }, automargin: true },
@@ -316,7 +318,7 @@ function updateTelemetry() {
             height: 250
         };
 
-        Plotly.react('orientation-graph', graphData, layout, config);
+        
     };
 
     const updatePressureGraph = (historyData) => {
