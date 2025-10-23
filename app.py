@@ -35,6 +35,9 @@ def save_flight_data(flight_data):
         flight_history.append(flight_data)
         with open(FLIGHT_HISTORY_FILE, 'w') as f:
             json.dump(flight_history, f)
+        # Update in-memory message_history to ensure consistency
+        global message_history
+        message_history = flight_history
     except Exception as e:
         logging.error(f"Error saving flight data: {e}")
         raise
@@ -124,7 +127,34 @@ def handle_rockblock():
 
 @app.route('/live-data', methods=['GET'])
 def get_live_data():
-    return jsonify(message_history[-1] if message_history else {"message": "No data received yet"})
+    if not message_history:
+        return jsonify({
+            "received_time": datetime.datetime.utcnow().isoformat() + "Z",
+            "sent_time": "1970-01-01T00:00:00Z",
+            "unix_epoch": 0,
+            "siv": 0,
+            "latitude": 0.0,
+            "longitude": 0.0,
+            "altitude": 0,
+            "pressure_mbar": 0,
+            "temperature_pht_c": 0,
+            "temperature_cj_c": 0,
+            "temperature_tctip_c": 0,
+            "roll_deg": 0,
+            "pitch_deg": 0,
+            "yaw_deg": 0,
+            "vavg_1_mps": 0,
+            "vavg_2_mps": 0,
+            "vavg_3_mps": 0,
+            "vstd_1_mps": 0,
+            "vstd_2_mps": 0,
+            "vstd_3_mps": 0,
+            "vpk_1_mps": 0,
+            "vpk_2_mps": 0,
+            "vpk_3_mps": 0,
+            "message": "No data received yet"
+        })
+    return jsonify(message_history[-1])
 
 @app.route('/flight-data', methods=['GET'])
 def live_data():
