@@ -79,12 +79,30 @@ def handle_rockblock():
 
         logging.info(f"Sanitized raw message string: {raw}")
 
-        # ✅ Try parsing with literal_eval (for Python-like dicts)
         try:
             message_data = literal_eval(raw)
         except Exception:
             logging.warning("literal_eval failed, trying json.loads")
             message_data = json.loads(raw)
+
+        # --- INSERT THIS RIGHT AFTER you parse message_data ---
+# If the incoming payload has a "data" field that itself is a JSON string,
+# decode it (repeat if nested).
+try:
+    # unwrap nested JSON strings under "data"
+    while isinstance(message_data.get("data"), str):
+        try:
+            inner = json.loads(message_data["data"])
+            # if inner is a dict with a "data" field, continue unwrapping,
+            # otherwise use the inner dict as the message_data
+            message_data = inner
+        except Exception:
+            # not JSON — stop unwrapping
+            break
+except Exception:
+    pass
+# --- end insert ---
+
 
         # Time conversion
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
