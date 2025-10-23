@@ -63,6 +63,8 @@ def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
     raw_data = data_json.get('data')
+    # Log the raw JSON received before any processing
+    logging.info(f"Raw JSON received from backend: {data_json}")
     logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {raw_data}, Length: {len(raw_data) if raw_data else 0} bytes")
     
     if imei != "301434060195570":
