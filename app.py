@@ -88,6 +88,14 @@ def handle_rockblock():
             # Directly parse if not nested
             message_data = json.loads(raw)
         
+        # Log GPS status
+        lat = message_data.get("lat", 0.0)
+        lon = message_data.get("lon", 0.0)
+        if lat == 0.0 and lon == 0.0:
+            logging.info("GPS coordinates not detected: lat=0.0, lon=0.0")
+        else:
+            logging.info(f"GPS coordinates valid: lat={lat}, lon={lon}")
+        
         # Time conversion
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
         extra_message = message_data.get("msg", "No extra message")
@@ -215,4 +223,3 @@ def animation_data():
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
-
