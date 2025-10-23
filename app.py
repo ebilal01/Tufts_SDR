@@ -59,65 +59,44 @@ def index():
 def handle_rockblock():
     data_json = request.get_json()
     imei = data_json.get('imei')
-    raw_data = data_json.get('data')  # Raw JSON-like string
-
+    raw_data = data_json.get('data')
     logging.info(f"Received POST /rockblock - IMEI: {imei}, Raw Data: {raw_data}, Length: {len(raw_data) if raw_data else 0} bytes")
-
+    
     if imei != "301434060195570":
         logging.warning("Invalid credentials")
         return "FAILED,10,Invalid login credentials", 400
-
+    
     if not raw_data:
         logging.warning("No data provided")
         return "FAILED,16,No data provided", 400
-
+    
     try:
-        # 🔍 Sanitize raw_data
+        # 🔍 Parse the raw_data, handling nested JSON
         raw = raw_data.strip()
-        if not raw.startswith("{"):
-            raw = "{" + raw  # Fix missing leading brace
-
-        logging.info(f"Sanitized raw message string: {raw}")
-
-        try:
-            message_data = literal_eval(raw)
-        except Exception:
-            logging.warning("literal_eval failed, trying json.loads")
+        if raw.startswith('{"data":'):
+            # Parse outer JSON and extract inner 'data' string
+            outer_data = json.loads(raw)
+            inner_data = outer_data.get('data')
+            # Parse the inner JSON string
+            message_data = json.loads(inner_data)
+        else:
+            # Directly parse if not nested
             message_data = json.loads(raw)
-
-        # --- INSERT THIS RIGHT AFTER you parse message_data ---
-# If the incoming payload has a "data" field that itself is a JSON string,
-# decode it (repeat if nested).
-try:
-    # unwrap nested JSON strings under "data"
-    while isinstance(message_data.get("data"), str):
-        try:
-            inner = json.loads(message_data["data"])
-            # if inner is a dict with a "data" field, continue unwrapping,
-            # otherwise use the inner dict as the message_data
-            message_data = inner
-        except Exception:
-            # not JSON — stop unwrapping
-            break
-except Exception:
-    pass
-# --- end insert ---
-
-
+        
         # Time conversion
         sent_time_utc = datetime.datetime.fromtimestamp(message_data.get("unix_epoch", 0), datetime.UTC).strftime('%Y-%m-%dT%H:%M:%SZ')
-        extra_message = message_data.get("message", "No extra message")
-
+        extra_message = message_data.get("msg", "No extra message")
+        
         full_data = {
             "received_time": datetime.datetime.utcnow().isoformat() + "Z",
             "sent_time": sent_time_utc,
             "unix_epoch": message_data.get("unix_epoch", 0),
             "siv": message_data.get("siv", 0),
-            "latitude": float(message_data.get("latitude", 0.0)),
-            "longitude": float(message_data.get("longitude", 0.0)),
-            "altitude": message_data.get("altitude", 0),
-            "pressure_mbar": message_data.get("pressure_mbar", 0),
-            "temperature_pht_c": message_data.get("temperature_pht_c", 0),
+            "latitude": float(message_data.get("lat", 0.0)),
+            "longitude": float(message_data.get("lon", 0.0)),
+            "altitude": message_data.get("alt", 0),
+            "pressure_mbar": message_data.get("pres", 0),
+            "temperature_pht_c": message_data.get("temp", 0),
             "temperature_cj_c": message_data.get("temperature_cj_c", 0),
             "temperature_tctip_c": message_data.get("temperature_tctip_c", 0),
             "roll_deg": message_data.get("roll_deg", 0),
@@ -134,13 +113,11 @@ except Exception:
             "vpk_3_mps": message_data.get("vpk_3_mps", 0),
             "message": extra_message
         }
-
+        
         message_history.append(full_data)
         save_flight_data(full_data)
-
         logging.info(f"Processed and stored message: {full_data}")
         return "OK,0"
-
     except Exception as e:
         logging.error(f"Error processing data: {e}")
         return "FAILED,15,Error processing message data", 400
